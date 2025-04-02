@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="tronzap-sdk",
-    version="1.0.0",
+    version="1.0.1",
     description="Official Python SDK for the TronZap API. TronZap is a platform for renting energy on the TRON blockchain. Buy TRON energy for cheap USDT transfers on TronZap.com",
     long_description=long_description,
     long_description_content_type="text/markdown",

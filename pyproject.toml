@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tronzap-sdk"
-version = "1.0.0"
+version = "1.0.1"
 description = "Official Python SDK for the TronZap API. TronZap is a platform for renting energy on the TRON blockchain. Buy TRON energy for cheap USDT transfers on TronZap.com"
 readme = "README.md"
 requires-python = ">=3"
