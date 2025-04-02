@@ -1,6 +1,6 @@
 # TronZap SDK para Python
 
-[English](README.md) | **[Español](README.es.md)** | [Português](README.pt-br.md) | [Русский](README.ru.md)
+[English](https://github.com/tron-energy-market/tronzap-sdk-python/blob/main/README.md) | **[Español](https://github.com/tron-energy-market/tronzap-sdk-python/blob/main/README.es.md)** | [Português](https://github.com/tron-energy-market/tronzap-sdk-python/blob/main/README.pt-br.md) | [Русский](https://github.com/tron-energy-market/tronzap-sdk-python/blob/main/README.ru.md)
 
 SDK oficial en Python para la API de TronZap.
 Este SDK permite integrar fácilmente los servicios de TronZap para alquilar energía TRON.
@@ -28,29 +28,35 @@ client = Client(
 
 # Obtener servicios disponibles
 services = client.get_services()
+print(services)
 
 # Obtener saldo de la cuenta
 balance = client.get_balance()
+print(balance)
 
 # Calcular costo de energía
 calculation = client.calculate(
     address="DIRECCION_BILLETERA_TRON",
-    energy=131000  # Cantidad recomendada para transferencias USDT
+    energy=65150  # Cantidad recomendada para transferencias USDT
 )
+print(calculation)
 
 # Crear transacción de energía
 transaction = client.create_energy_transaction(
     address="DIRECCION_BILLETERA_TRON",
-    energy_amount=131000,
+    energy_amount=65150,
     duration=1,
     activate_address=True  # Si la dirección necesita activación
 )
+print(transaction)
 
 # Verificar estado de la transacción
 status = client.check_transaction(transaction_id="ID_TRANSACCION")
+print(status)
 
 # Obtener información de recarga directa
 recharge_info = client.get_direct_recharge_info()
+print(recharge_info)
 ```
 
 ## Características
