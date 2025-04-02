@@ -2,9 +2,52 @@
 requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "tronzap-sdk"
+version = "1.0.0"
+description = "Official Python SDK for the TronZap API. TronZap is a platform for renting energy on the TRON blockchain. Buy TRON energy for cheap USDT transfers on TronZap.com"
+readme = "README.md"
+requires-python = ">=3"
+license = {text = "MIT"}
+authors = [
+    {name = "Tron Energy Market", email = "support@tronzap.com"}
+]
+keywords = [
+    "TronZap",
+    "Tron",
+    "Trx",
+    "Tron API",
+    "Trx API",
+    "TRX energy",
+    "TRON energy api",
+    "buy trx energy",
+    "buy tron energy",
+    "trx energy market",
+    "tron energy market",
+    "USDT",
+    "TRC20",
+    "TRC-20",
+    "cryptocurrency",
+    "blockchain",
+    "crypto transfers"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3"
+]
+
+[project.urls]
+Homepage = "https://tronzap.com"
+Repository = "https://github.com/tron-energy-market/tronzap-sdk-python"
+Documentation = "https://docs.tronzap.com/"
+Issues = "https://github.com/tron-energy-market/tronzap-sdk-python/issues"
+Support = "https://t.me/tronzap_bot"
+
 [tool.black]
 line-length = 100
-target-version = ['py37']
+target-version = ['py3']
 include = '\.pyi?$'
 
 [tool.isort]
@@ -13,7 +56,7 @@ multi_line_output = 3
 line_length = 100
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
