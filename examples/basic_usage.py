@@ -37,8 +37,8 @@ def main():
         print("\nCreating energy transaction:")
         transaction = client.create_energy_transaction(
             address="TRON_WALLET_ADDRESS",
-            energy_amount=131000,
-            duration=1,
+            energy_amount=131000, # From 32000
+            duration=1, # Possible values: 1 or 24 hours
             activate_address=True
         )
         print(transaction)

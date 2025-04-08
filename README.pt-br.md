@@ -44,8 +44,8 @@ print(calculation)
 # Criar transação de energia
 transaction = client.create_energy_transaction(
     address="ENDERECO_CARTEIRA_TRON",
-    energy_amount=65150,
-    duration=1,
+    energy_amount=65150, # A partir de 32000
+    duration=1, # Valores possíveis 1 ou 24 horas
     activate_address=True  # Se o endereço precisar de ativação
 )
 print(transaction)

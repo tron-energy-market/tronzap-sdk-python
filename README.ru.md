@@ -44,8 +44,8 @@ print(calculation)
 # Создание транзакции энергии
 transaction = client.create_energy_transaction(
     address="АДРЕС_КОШЕЛЬКА_TRON",
-    energy_amount=65150,
-    duration=1,
+    energy_amount=65150, # От 32000
+    duration=1, # Возможные значения 1 или 24 часа
     activate_address=True  # Если адрес требует активации
 )
 print(transaction = client.create_energy_transaction(
