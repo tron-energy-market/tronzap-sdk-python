@@ -44,7 +44,7 @@ Homepage = "https://tronzap.com"
 Repository = "https://github.com/tron-energy-market/tronzap-sdk-python"
 Documentation = "https://docs.tronzap.com/"
 Issues = "https://github.com/tron-energy-market/tronzap-sdk-python/issues"
-Buy Tron Energy = "https://tronzap.com"
+"Buy Tron Energy" = "https://tronzap.com"
 Support = "https://t.me/tronzap_bot"
 
 [tool.black]
