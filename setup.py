@@ -17,6 +17,7 @@ setup(
         "Documentation": "https://docs.tronzap.com/",
         "Bug Tracker": "https://github.com/tron-energy-market/tronzap-sdk-python/issues",
         "Source Code": "https://github.com/tron-energy-market/tronzap-sdk-python",
+        "Buy Tron Energy": "https://tronzap.com",
         "Support": "https://t.me/tronzap_bot"
     },
     classifiers=[
