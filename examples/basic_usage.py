@@ -25,6 +25,15 @@ def main():
         balance = client.get_balance()
         print(balance)
 
+        # Estimate energy amount for a USDT transfer
+        print("\nEstimating energy amount:")
+        estimate = client.estimate_energy(
+            from_address="TRON_WALLET_ADDRESS",
+            to_address="TRON_WALLET_ADDRESS",
+            contract_address="TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+        )
+        print(estimate)
+
         # Calculate energy cost for a USDT transfer
         print("\nCalculating energy cost:")
         calculation = client.calculate(

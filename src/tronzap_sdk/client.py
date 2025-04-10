@@ -149,6 +149,29 @@ class Client:
         """
         return self._request('POST', '/v1/balance', {})
 
+    def estimate_energy(
+        self,
+        from_address: str,
+        to_address: str,
+        contract_address: str = ''
+    ) -> Dict[str, Any]:
+        """
+        Estimate energy cost for a TRON transaction.
+
+        Args:
+            from_address (str): TRON wallet address of the sender
+            to_address (str): TRON wallet address of the recipient
+            contract_address (str, optional): TRON contract address. Defaults to 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'.
+
+        Returns:
+            Dict[str, Any]: Energy estimate result
+        """
+        return self._request('POST', '/v1/estimate-energy', {
+            'from_address': from_address,
+            'to_address': to_address,
+            'contract_address': contract_address
+        })
+
     def calculate(
         self,
         address: str,

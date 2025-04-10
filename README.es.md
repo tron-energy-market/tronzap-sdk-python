@@ -34,6 +34,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Estimar costo de energía para transferencia USDT
+estimate = client.estimate_energy('DIRECCION_ORIGEN_TRX', 'DIRECCION_DESTINO_TRX', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
+print(estimate)
+
 # Calcular costo de energía
 calculation = client.calculate(
     address="DIRECCION_BILLETERA_TRON",

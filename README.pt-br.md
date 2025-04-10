@@ -34,6 +34,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Estimar custo de energia para transferência USDT
+estimate = client.estimate_energy('ENDERECO_ORIGEM_TRX', 'ENDERECO_DESTINO_TRX', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
+print(estimate)
+
 # Calcular custo de energia
 calculation = client.calculate(
     address="ENDERECO_CARTEIRA_TRON",

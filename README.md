@@ -34,6 +34,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Estimate energy cost for USDT transfer
+estimate = client.estimate_energy('FROM_TRX_ADDRESS', 'TO_TRX_ADDRESS', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
+print(estimate)
+
 # Calculate energy cost
 calculation = client.calculate(
     address="TRON_WALLET_ADDRESS",

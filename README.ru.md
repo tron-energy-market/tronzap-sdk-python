@@ -34,6 +34,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Оценка стоимости энергии для перевода USDT
+estimate = client.estimate_energy('АДРЕС_ОТПРАВИТЕЛЯ_TRX', 'АДРЕС_ПОЛУЧАТЕЛЯ_TRX', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
+print(estimate)
+
 # Расчет стоимости энергии
 calculation = client.calculate(
     address="АДРЕС_КОШЕЛЬКА_TRON",

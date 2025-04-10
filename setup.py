@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="tronzap-sdk",
-    version="1.0.3",
+    version="1.0.4",
     description="Official Python SDK for the Tron Energy API by TronZap.com. Buy Tron energy for cheap USDT transfers on TronZap.com",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -46,6 +46,8 @@ setup(
         "buy tron energy",
         "trx energy market",
         "tron energy market",
+        "usdt energy",
+        "tether energy",
         "USDT",
         "TRC20",
         "TRC-20",

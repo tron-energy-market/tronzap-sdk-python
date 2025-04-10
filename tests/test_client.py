@@ -69,6 +69,33 @@ def test_get_balance(mock_post, client):
     assert call_args["url"] == "https://api.tronzap.com/v1/balance"
 
 @patch('requests.post')
+def test_estimate_energy(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"energy": 131000, "duration": 1, "price": 1.67, "activation_fee": 0, "total": 1.67, "contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "from_address": "test_address", "to_address": "test_address"}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.estimate_energy(
+        from_address="test_address",
+        to_address="test_address",
+        contract_address="TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+    )
+    assert result == {"energy": 131000, "duration": 1, "price": 1.67, "activation_fee": 0, "total": 1.67, "contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "from_address": "test_address", "to_address": "test_address"}
+
+    mock_post.assert_called_once()
+    call_args = mock_post.call_args[1]
+    assert call_args["headers"]["Authorization"] == "Bearer test_token"
+    assert "X-Signature" in call_args["headers"]
+    assert call_args["url"] == "https://api.tronzap.com/v1/estimate-energy"
+    assert json.loads(call_args["data"]) == {
+        "from_address": "test_address",
+        "to_address": "test_address",
+        "contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+    }
+
+@patch('requests.post')
 def test_calculate(mock_post, client):
     mock_response = MagicMock()
     mock_response.json.return_value = {
