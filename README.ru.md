@@ -56,7 +56,7 @@ print(transaction = client.create_energy_transaction(
 )
 
 # Проверка статуса транзакции
-status = client.check_transaction(transaction_id="ID_ТРАНЗАКЦИИ")
+status = client.check_transaction(id="ID_ТРАНЗАКЦИИ")
 print(status)
 
 # Получение информации о прямом пополнении

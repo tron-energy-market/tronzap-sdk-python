@@ -260,19 +260,29 @@ class Client:
 
         return self._request('POST', '/v1/transaction/new', params)
 
-    def check_transaction(self, transaction_id: str) -> Dict[str, Any]:
+    def check_transaction(
+        self,
+        id: Optional[str] = None,
+        external_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Check transaction status.
 
         Args:
-            transaction_id (str): Transaction ID
+            id (Optional[str], optional): Internal transaction ID
+            external_id (Optional[str], optional): External transaction ID.
+            Note: Either id or external_id must be provided.
 
         Returns:
             Dict[str, Any]: Transaction status data
         """
-        return self._request('POST', '/v1/transaction/check', {
-            'transaction_id': transaction_id
-        })
+        params = {}
+        if id:
+            params['id'] = id
+        if external_id:
+            params['external_id'] = external_id
+
+        return self._request('POST', '/v1/transaction/check', params)
 
     def get_direct_recharge_info(self) -> Dict[str, Any]:
         """

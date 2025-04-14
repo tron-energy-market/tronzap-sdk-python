@@ -55,7 +55,7 @@ transaction = client.create_energy_transaction(
 print(transaction)
 
 # Check transaction status
-status = client.check_transaction(transaction_id="TRANSACTION_ID")
+status = client.check_transaction(id="TRANSACTION_ID")
 print(status)
 
 # Get direct recharge information

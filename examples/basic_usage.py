@@ -54,7 +54,7 @@ def main():
 
         # Check transaction status
         print("\nChecking transaction status:")
-        status = client.check_transaction(transaction_id=transaction["transaction_id"])
+        status = client.check_transaction(id=transaction["id"])
         print(status)
 
         # Get direct recharge information

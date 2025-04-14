@@ -55,7 +55,7 @@ transaction = client.create_energy_transaction(
 print(transaction)
 
 # Verificar estado de la transacción
-status = client.check_transaction(transaction_id="ID_TRANSACCION")
+status = client.check_transaction(id="ID_TRANSACCION")
 print(status)
 
 # Obtener información de recarga directa
