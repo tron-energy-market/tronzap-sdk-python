@@ -15,6 +15,8 @@ TronZap.com allows you to [buy TRON energy](https://tronzap.com/), making USDT (
 pip install tronzap-sdk
 ```
 
+Check out at PyPI: https://pypi.org/project/tronzap-sdk/
+
 ## Quick Start
 
 ```python
