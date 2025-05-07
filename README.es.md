@@ -48,7 +48,7 @@ print(calculation)
 # Crear transacción de energía
 transaction = client.create_energy_transaction(
     address="DIRECCION_BILLETERA_TRON",
-    energy_amount=65150, # Desde 32000
+    energy_amount=65150, # Desde 60000
     duration=1, # Valores posibles 1 o 24 horas
     activate_address=True  # Si la dirección necesita activación
 )
