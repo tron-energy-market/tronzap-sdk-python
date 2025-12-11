@@ -54,9 +54,29 @@ transaction = client.create_energy_transaction(
 )
 print(transaction)
 
+# Comprar ancho de banda
+bandwidth = client.create_bandwidth_transaction(
+    address="DIRECCION_BILLETERA_TRON",
+    amount=1000,
+    external_id="bandwidth-1"
+)
+print(bandwidth)
+
 # Verificar estado de la transacción
 status = client.check_transaction(id="ID_TRANSACCION")
 print(status)
+
+# Crear chequeo AML
+aml_check = client.create_aml_check(
+    type="address",
+    network="TRX",
+    address="TXYZ1234567890EXAMPLEADDRESS"
+)
+print(aml_check)
+
+# Verificar estado AML
+aml_status = client.check_aml_status(id=aml_check["id"])
+print(aml_status)
 
 # Obtener información de recarga directa
 recharge_info = client.get_direct_recharge_info()
@@ -66,10 +86,13 @@ print(recharge_info)
 ## Características
 
 - Obtener servicios disponibles
+- Obtener servicios AML
 - Obtener saldo de la cuenta
 - Calcular costo de energía
 - Crear transacciones de activación de dirección
 - Crear transacciones de compra de energía
+- Crear transacciones de compra de ancho de banda
+- Crear y seguir chequeos AML
 - Verificar estado de transacciones
 - Obtener información de recarga directa
 
@@ -112,6 +135,10 @@ except TronZapException as e:
         print("Dirección no activada")
     elif e.code == ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         print("La dirección ya está activada")
+    elif e.code == ErrorCode.AML_CHECK_NOT_FOUND:
+        print("Chequeo AML no encontrado")
+    elif e.code == ErrorCode.SERVICE_NOT_AVAILABLE:
+        print("Servicio no disponible")
     elif e.code == ErrorCode.INTERNAL_SERVER_ERROR:
         print("Error interno del servidor")
     else:
@@ -132,6 +159,8 @@ except TronZapException as e:
 | 20     | `TRANSACTION_NOT_FOUND`        | Transacción no encontrada |
 | 24     | `ADDRESS_NOT_ACTIVATED`        | Dirección no activada |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`    | La dirección ya está activada |
+| 30     | `AML_CHECK_NOT_FOUND`          | Chequeo AML no encontrado |
+| 35     | `SERVICE_NOT_AVAILABLE`        | Servicio no disponible |
 | 500    | `INTERNAL_SERVER_ERROR`        | Error interno del servidor – Contacta con soporte |
 
 

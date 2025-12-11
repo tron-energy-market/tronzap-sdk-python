@@ -57,6 +57,39 @@ def main():
         status = client.check_transaction(id=transaction["id"])
         print(status)
 
+        # Create bandwidth transaction
+        print("\nCreating bandwidth transaction:")
+        bandwidth = client.create_bandwidth_transaction(
+            address="TRON_WALLET_ADDRESS",
+            amount=1000,
+            external_id="bandwidth-example"
+        )
+        print(bandwidth)
+
+        # AML services
+        print("\nAvailable AML services:")
+        aml_services = client.get_aml_services()
+        print(aml_services)
+
+        # Create AML check
+        print("\nCreating AML check:")
+        aml_check = client.create_aml_check(
+            type="address",
+            network="TRX",
+            address="TXYZ1234567890EXAMPLEADDRESS"
+        )
+        print(aml_check)
+
+        if aml_check.get("id"):
+            print("\nChecking AML status:")
+            aml_status = client.check_aml_status(aml_check["id"])
+            print(aml_status)
+
+        # AML history
+        print("\nAML history:")
+        aml_history = client.get_aml_history(page=1, per_page=5)
+        print(aml_history)
+
         # Get direct recharge information
         print("\nDirect recharge information:")
         recharge_info = client.get_direct_recharge_info()

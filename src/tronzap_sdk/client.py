@@ -44,6 +44,12 @@ class ErrorCode(IntEnum):
     # Address already activated - The address is already activated. No action needed.
     ADDRESS_ALREADY_ACTIVATED = 25
 
+    # AML check not found - Re-run the AML check or confirm the ID.
+    AML_CHECK_NOT_FOUND = 30
+
+    # Service not available - The service is temporarily unavailable.
+    SERVICE_NOT_AVAILABLE = 35
+
 class TronZapException(Exception):
     """Base exception for TronZap SDK errors."""
     def __init__(self, message: str, code: int = 1):
@@ -140,6 +146,15 @@ class Client:
         """
         return self._request('POST', '/v1/services', {})
 
+    def get_aml_services(self) -> Dict[str, Any]:
+        """
+        Get available AML services.
+
+        Returns:
+            Dict[str, Any]: AML services data
+        """
+        return self._request('POST', '/v1/aml-checks', {})
+
     def get_balance(self) -> Dict[str, Any]:
         """
         Get account balance.
@@ -221,12 +236,44 @@ class Client:
             'params': {
                 'address': address,
                 'energy_amount': energy_amount,
+                'amount': energy_amount,
                 'duration': duration
             }
         }
 
         if activate_address:
             params['params']['activate_address'] = True
+
+        if external_id:
+            params['external_id'] = external_id
+
+        return self._request('POST', '/v1/transaction/new', params)
+
+    def create_bandwidth_transaction(
+        self,
+        address: str,
+        amount: int,
+        external_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new transaction for bandwidth purchase.
+
+        Args:
+            address (str): TRON wallet address
+            amount (int): Amount of bandwidth to purchase
+            external_id (Optional[str], optional): External transaction ID.
+
+        Returns:
+            Dict[str, Any]: Transaction data
+        """
+        params = {
+            'service': 'bandwidth',
+            'params': {
+                'address': address,
+                'amount': amount,
+                'duration': 1
+            }
+        }
 
         if external_id:
             params['external_id'] = external_id
@@ -259,6 +306,80 @@ class Client:
             params['external_id'] = external_id
 
         return self._request('POST', '/v1/transaction/new', params)
+
+    def create_aml_check(
+        self,
+        type: str,
+        network: str,
+        address: str,
+        hash: Optional[str] = None,
+        direction: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new AML check.
+
+        Args:
+            type (str): AML service type: address or hash
+            network (str): Network code (e.g. TRX, BTC, ETH)
+            address (str): Wallet address
+            hash (Optional[str]): Transaction hash (for type=hash)
+            direction (Optional[str]): Direction for hash checks (deposit or withdrawal)
+
+        Returns:
+            Dict[str, Any]: AML check data
+        """
+        params: Dict[str, Any] = {
+            'type': type,
+            'network': network,
+            'address': address
+        }
+
+        if hash is not None:
+            params['hash'] = hash
+
+        if direction is not None:
+            params['direction'] = direction
+
+        return self._request('POST', '/v1/aml-checks/new', params)
+
+    def check_aml_status(self, id: str) -> Dict[str, Any]:
+        """
+        Check AML status.
+
+        Args:
+            id (str): AML check ID
+
+        Returns:
+            Dict[str, Any]: AML status data
+        """
+        return self._request('POST', '/v1/aml-checks/check', {'id': id})
+
+    def get_aml_history(
+        self,
+        page: int = 1,
+        per_page: int = 10,
+        status: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get AML history.
+
+        Args:
+            page (int, optional): Page number. Defaults to 1.
+            per_page (int, optional): Items per page. Defaults to 10.
+            status (Optional[str], optional): Filter by status.
+
+        Returns:
+            Dict[str, Any]: AML history data
+        """
+        params: Dict[str, Any] = {
+            'page': page,
+            'per_page': per_page
+        }
+
+        if status is not None:
+            params['status'] = status
+
+        return self._request('POST', '/v1/aml-checks/history', params)
 
     def check_transaction(
         self,

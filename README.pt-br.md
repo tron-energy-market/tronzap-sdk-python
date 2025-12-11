@@ -54,9 +54,29 @@ transaction = client.create_energy_transaction(
 )
 print(transaction)
 
+# Comprar bandwidth
+bandwidth = client.create_bandwidth_transaction(
+    address="ENDERECO_CARTEIRA_TRON",
+    amount=1000,
+    external_id="bandwidth-1"
+)
+print(bandwidth)
+
 # Verificar status da transação
 status = client.check_transaction(id="ID_TRANSACAO")
 print(status)
+
+# Criar checagem AML
+aml_check = client.create_aml_check(
+    type="address",
+    network="TRX",
+    address="TXYZ1234567890EXAMPLEADDRESS"
+)
+print(aml_check)
+
+# Verificar status AML
+aml_status = client.check_aml_status(id=aml_check["id"])
+print(aml_status)
 
 # Obter informações de recarga direta
 recharge_info = client.get_direct_recharge_info()
@@ -66,10 +86,13 @@ print(recharge_info)
 ## Recursos
 
 - Obter serviços disponíveis
+- Obter serviços AML
 - Obter saldo da conta
 - Calcular custo de energia
 - Criar transações de ativação de endereço
 - Criar transações de compra de energia
+- Criar transações de compra de bandwidth
+- Criar e acompanhar checagens AML
 - Verificar status de transações
 - Obter informações de recarga direta
 
@@ -112,6 +135,10 @@ except TronZapException as e:
         print("Endereço não ativado")
     elif e.code == ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         print("Endereço já ativado")
+    elif e.code == ErrorCode.AML_CHECK_NOT_FOUND:
+        print("Checagem AML não encontrada")
+    elif e.code == ErrorCode.SERVICE_NOT_AVAILABLE:
+        print("Serviço não disponível")
     elif e.code == ErrorCode.INTERNAL_SERVER_ERROR:
         print("Erro interno do servidor")
     else:
@@ -132,6 +159,8 @@ except TronZapException as e:
 | 20     | `TRANSACTION_NOT_FOUND`        | Transação não encontrada |
 | 24     | `ADDRESS_NOT_ACTIVATED`        | Endereço não ativado |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`    | Endereço já ativado |
+| 30     | `AML_CHECK_NOT_FOUND`          | Checagem AML não encontrada |
+| 35     | `SERVICE_NOT_AVAILABLE`        | Serviço não disponível |
 | 500    | `INTERNAL_SERVER_ERROR`        | Erro interno do servidor – Contate o suporte |
 
 

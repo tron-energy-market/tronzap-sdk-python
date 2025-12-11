@@ -148,9 +148,111 @@ def test_create_energy_transaction(mock_post, client):
         "params": {
             "address": "test_address",
             "energy_amount": 131000,
+            "amount": 131000,
             "duration": 1,
             "activate_address": True
         }
+    }
+
+@patch('requests.post')
+def test_create_bandwidth_transaction(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"transaction_id": "bandwidth_id"}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.create_bandwidth_transaction(
+        address="test_address",
+        amount=1000,
+        external_id="ext-1"
+    )
+    assert result == {"transaction_id": "bandwidth_id"}
+
+    mock_post.assert_called_once()
+    call_args = mock_post.call_args[1]
+    assert call_args["url"] == "https://api.tronzap.com/v1/transaction/new"
+    assert json.loads(call_args["data"]) == {
+        "service": "bandwidth",
+        "params": {
+            "address": "test_address",
+            "amount": 50000,
+            "duration": 1
+        },
+        "external_id": "ext-1"
+    }
+
+@patch('requests.post')
+def test_get_aml_services(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": [{"id": "service", "price": 1}]
+    }
+    mock_post.return_value = mock_response
+
+    result = client.get_aml_services()
+    assert result == [{"id": "service", "price": 1}]
+    mock_post.assert_called_once()
+    assert mock_post.call_args[1]["url"] == "https://api.tronzap.com/v1/aml-checks"
+
+@patch('requests.post')
+def test_create_aml_check(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"id": "aml-id"}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.create_aml_check(
+        type="hash",
+        network="TRX",
+        address="T123",
+        hash="hash",
+        direction="deposit"
+    )
+    assert result == {"id": "aml-id"}
+    mock_post.assert_called_once()
+    assert json.loads(mock_post.call_args[1]["data"]) == {
+        "type": "hash",
+        "network": "TRX",
+        "address": "T123",
+        "hash": "hash",
+        "direction": "deposit"
+    }
+
+@patch('requests.post')
+def test_check_aml_status(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"status": "pending"}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.check_aml_status("aml-id")
+    assert result == {"status": "pending"}
+    mock_post.assert_called_once()
+    assert json.loads(mock_post.call_args[1]["data"]) == {"id": "aml-id"}
+
+@patch('requests.post')
+def test_get_aml_history(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"items": []}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.get_aml_history(page=2, per_page=5, status="completed")
+    assert result == {"items": []}
+    mock_post.assert_called_once()
+    assert json.loads(mock_post.call_args[1]["data"]) == {
+        "page": 2,
+        "per_page": 5,
+        "status": "completed"
     }
 
 @patch('requests.post')

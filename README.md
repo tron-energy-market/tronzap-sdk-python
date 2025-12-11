@@ -56,9 +56,29 @@ transaction = client.create_energy_transaction(
 )
 print(transaction)
 
+# Buy bandwidth
+bandwidth = client.create_bandwidth_transaction(
+    address="TRON_WALLET_ADDRESS",
+    amount=1000,
+    external_id="bandwidth-1"
+)
+print(bandwidth)
+
 # Check transaction status
 status = client.check_transaction(id="TRANSACTION_ID")
 print(status)
+
+# Create AML check
+aml_check = client.create_aml_check(
+    type="address",
+    network="TRX",
+    address="TXYZ1234567890EXAMPLEADDRESS"
+)
+print(aml_check)
+
+# Check AML status
+aml_status = client.check_aml_status(id=aml_check["id"])
+print(aml_status)
 
 # Get direct recharge information
 recharge_info = client.get_direct_recharge_info()
@@ -68,10 +88,13 @@ print(recharge_info)
 ## Features
 
 - Get available services
+- Get AML services
 - Get account balance
 - Calculate energy cost
 - Create address activation transactions
 - Create energy purchase transactions
+- Create bandwidth purchase transactions
+- Create and track AML checks
 - Check transaction status
 - Get direct recharge information
 
@@ -114,6 +137,10 @@ except TronZapException as e:
         print("Address not activated")
     elif e.code == ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         print("Address already activated")
+    elif e.code == ErrorCode.AML_CHECK_NOT_FOUND:
+        print("AML check not found")
+    elif e.code == ErrorCode.SERVICE_NOT_AVAILABLE:
+        print("Service not available")
     elif e.code == ErrorCode.INTERNAL_SERVER_ERROR:
         print("Internal server error")
     else:
@@ -134,6 +161,8 @@ except TronZapException as e:
 | 20   | `TRANSACTION_NOT_FOUND`        | Transaction not found |
 | 24   | `ADDRESS_NOT_ACTIVATED`        | Address not activated |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`    | Address already activated |
+| 30   | `AML_CHECK_NOT_FOUND`          | AML check not found |
+| 35   | `SERVICE_NOT_AVAILABLE`        | Service not available |
 | 500  | `INTERNAL_SERVER_ERROR`        | Internal server error – Contact support |
 
 
