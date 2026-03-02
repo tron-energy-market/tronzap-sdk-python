@@ -103,46 +103,71 @@ print(recharge_info)
 
 ## Manejo de Errores
 
-El SDK lanza `TronZapException` cuando la API devuelve un error. Cada excepción incluye las propiedades `.code` y `.message` para depurar y manejar casos específicos.
+El SDK utiliza una jerarquía de excepciones para un manejo preciso de errores:
+
+```
+TronZapException
+├── ApiException             — errores a nivel de API (code != 0 en la respuesta)
+├── NetworkException         — errores de red/conectividad
+│   ├── ConnectionException  — no se pudo conectar al servidor
+│   ├── TimeoutException     — tiempo de espera agotado
+│   └── SslException         — errores SSL/TLS
+└── HttpException            — respuestas HTTP no 2xx
+    ├── RateLimitException   — HTTP 429 Too Many Requests
+    ├── UnauthorizedException — HTTP 401/403
+    └── ServerException      — errores HTTP 5xx
+```
 
 ### Ejemplo
 
 ```python
-from tronzap_sdk import Client, TronZapException, ErrorCode
+from tronzap_sdk import Client
+from tronzap_sdk.exceptions import (
+    ApiException,
+    ConnectionException,
+    HttpException,
+    NetworkException,
+    RateLimitException,
+    ServerException,
+    SslException,
+    TimeoutException,
+    TronZapException,
+    UnauthorizedException,
+    ErrorCode,
+)
 
-client = Client(api_token="your_api_token", api_secret="your_api_secret")
+client = Client(api_token="tu_api_token", api_secret="tu_api_secret")
 
 try:
-    balance = client.get_balance()
+    transaction = client.create_energy_transaction("TRX_ADDRESS", 65000, 1)
+except ApiException as e:
+    # Error a nivel de API (parámetros inválidos, fondos insuficientes, etc.)
+    print(f"Error API [{e.code}]: {e.message}")
+
+    # Clave alias del error, p.ej. "invalid_tron_address" o "invalid_tron_address.from_address"
+    if e.error_key:
+        print(f"Clave de error: {e.error_key}")
+
+    if e.code == ErrorCode.INVALID_TRON_ADDRESS:
+        print("Revisa el formato de la dirección TRON.")
+except RateLimitException:
+    print("Demasiadas solicitudes. Reduce la frecuencia.")
+except UnauthorizedException:
+    print("Token API o firma inválidos.")
+except ServerException as e:
+    print(f"Error del servidor TronZap [{e.status_code}].")
+except HttpException as e:
+    print(f"Error HTTP [{e.status_code}]: {e.message}")
+except TimeoutException:
+    print("Tiempo de espera agotado.")
+except SslException as e:
+    print(f"Error SSL: {e.message}")
+except ConnectionException as e:
+    print(f"Error de conexión: {e.message}")
+except NetworkException as e:
+    print(f"Error de red: {e.message}")
 except TronZapException as e:
-    if e.code == ErrorCode.AUTH_ERROR:
-        print("Error de autenticación")
-    elif e.code == ErrorCode.INVALID_SERVICE_OR_PARAMS:
-        print("Servicio o parámetros inválidos")
-    elif e.code == ErrorCode.WALLET_NOT_FOUND:
-        print("Cartera interna no encontrada. Contacte con soporte.")
-    elif e.code == ErrorCode.INSUFFICIENT_FUNDS:
-        print("Fondos insuficientes")
-    elif e.code == ErrorCode.INVALID_TRON_ADDRESS:
-        print("Dirección TRON inválida")
-    elif e.code == ErrorCode.INVALID_ENERGY_AMOUNT:
-        print("Cantidad de energía inválida")
-    elif e.code == ErrorCode.INVALID_DURATION:
-        print("Duración inválida")
-    elif e.code == ErrorCode.TRANSACTION_NOT_FOUND:
-        print("Transacción no encontrada")
-    elif e.code == ErrorCode.ADDRESS_NOT_ACTIVATED:
-        print("Dirección no activada")
-    elif e.code == ErrorCode.ADDRESS_ALREADY_ACTIVATED:
-        print("La dirección ya está activada")
-    elif e.code == ErrorCode.AML_CHECK_NOT_FOUND:
-        print("Chequeo AML no encontrado")
-    elif e.code == ErrorCode.SERVICE_NOT_AVAILABLE:
-        print("Servicio no disponible")
-    elif e.code == ErrorCode.INTERNAL_SERVER_ERROR:
-        print("Error interno del servidor")
-    else:
-        print(f"Error no manejado {e.code}: {e.message}")
+    print(f"Error [{e.code}]: {e.message}")
 ```
 
 ### Códigos de Error

@@ -8,54 +8,20 @@ import json
 import hashlib
 import requests
 from typing import Dict, Optional, Union, Any
-from enum import IntEnum
 
-class ErrorCode(IntEnum):
-    # Internal server error - Contact support if this error persists.
-    INTERNAL_SERVER_ERROR = 500
-
-    # Authentication error - Check your API token and ensure your signature is calculated correctly.
-    AUTH_ERROR = 1
-
-    # Invalid service or parameters - Check that the service name and parameters are correct.
-    INVALID_SERVICE_OR_PARAMS = 2
-
-    # Wallet not found - Verify the wallet address or contact support if you believe this is an error.
-    WALLET_NOT_FOUND = 5
-
-    # Insufficient funds - Add funds to your account or reduce the amount of energy you're requesting.
-    INSUFFICIENT_FUNDS = 6
-
-    # Invalid TRON address - Check the TRON address format. It should be a valid 34-character TRON address.
-    INVALID_TRON_ADDRESS = 10
-
-    # Invalid energy amount - Ensure the requested energy amount is valid.
-    INVALID_ENERGY_AMOUNT = 11
-
-    # Invalid duration - Check that the duration parameter is valid.
-    INVALID_DURATION = 12
-
-    # Transaction not found - Verify the transaction ID or external ID is correct.
-    TRANSACTION_NOT_FOUND = 20
-
-    # Address not activated - Activate the address first by making an address activation transaction.
-    ADDRESS_NOT_ACTIVATED = 24
-
-    # Address already activated - The address is already activated. No action needed.
-    ADDRESS_ALREADY_ACTIVATED = 25
-
-    # AML check not found - Re-run the AML check or confirm the ID.
-    AML_CHECK_NOT_FOUND = 30
-
-    # Service not available - The service is temporarily unavailable.
-    SERVICE_NOT_AVAILABLE = 35
-
-class TronZapException(Exception):
-    """Base exception for TronZap SDK errors."""
-    def __init__(self, message: str, code: int = 1):
-        self.message = message
-        self.code = code
-        super().__init__(f"TronZap API Error {code}: {message}")
+from .exceptions import (
+    ApiException,
+    ConnectionException,
+    ErrorCode,
+    HttpException,
+    NetworkException,
+    RateLimitException,
+    ServerException,
+    SslException,
+    TimeoutException,
+    TronZapException,
+    UnauthorizedException,
+)
 
 class Client:
     """
@@ -110,32 +76,54 @@ class Client:
         headers = {
             'Authorization': f'Bearer {self.api_token}',
             'X-Signature': signature,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         }
 
+        # 1. Network-level errors
+        # SSLError must come before ConnectionError (it's a subclass of it).
+        # Timeout must come before ConnectionError (ConnectTimeout is a subclass of both).
         try:
             response = requests.post(
-                f"{self.base_url}{endpoint}",
+                url=f"{self.base_url}{endpoint}",
                 data=request_body,
                 headers=headers,
-                verify=True
+                verify=True,
+            )
+        except requests.exceptions.SSLError as e:
+            raise SslException(str(e), original_error=e) from e
+        except requests.exceptions.Timeout as e:
+            raise TimeoutException(str(e), original_error=e) from e
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionException(str(e), original_error=e) from e
+        except requests.exceptions.RequestException as e:
+            raise NetworkException(str(e), original_error=e) from e
+
+        # 2. HTTP-level errors (non-2xx)
+        if not response.ok:
+            body = response.text
+            if response.status_code == 429:
+                raise RateLimitException(response_body=body)
+            if response.status_code in (401, 403):
+                raise UnauthorizedException(response.status_code, 'Unauthorized', body)
+            if response.status_code >= 500:
+                raise ServerException(response.status_code, 'Server error', body)
+            raise HttpException(response.status_code, f'HTTP error {response.status_code}', body)
+
+        # 3. JSON parsing
+        try:
+            response_data = response.json()
+        except ValueError:
+            raise ServerException(response.status_code, 'Invalid JSON response', response.text)
+
+        # 4. API-level errors
+        if response_data.get('code') != 0:
+            raise ApiException(
+                response_data.get('error', 'Unknown API error'),
+                code=response_data.get('code', 1),
+                error_key=response_data.get('key'),
             )
 
-            try:
-                response_data = response.json()
-            except ValueError:
-                raise TronZapException("Invalid JSON in response", code=500)
-
-            if response_data.get('code') != 0:
-                raise TronZapException(
-                    response_data.get('error', 'Unknown API error'),
-                    response_data.get('code', 1)
-                )
-
-            return response_data['result']
-
-        except requests.exceptions.RequestException as e:
-            raise TronZapException(f"API request failed: {str(e)}")
+        return response_data['result']
 
     def get_services(self) -> Dict[str, Any]:
         """

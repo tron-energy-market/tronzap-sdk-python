@@ -4,7 +4,19 @@ Tests for the TronZap SDK client
 
 import pytest
 from unittest.mock import patch, MagicMock
-from tronzap_sdk import Client, TronZapException
+from tronzap_sdk import (
+    Client,
+    TronZapException,
+    ApiException,
+    NetworkException,
+    ConnectionException,
+    TimeoutException,
+    SslException,
+    HttpException,
+    ServerException,
+    RateLimitException,
+    UnauthorizedException,
+)
 import requests
 import json
 
@@ -177,7 +189,7 @@ def test_create_bandwidth_transaction(mock_post, client):
         "service": "bandwidth",
         "params": {
             "address": "test_address",
-            "amount": 50000,
+            "amount": 1000,
             "duration": 1
         },
         "external_id": "ext-1"
@@ -258,6 +270,7 @@ def test_get_aml_history(mock_post, client):
 @patch('requests.post')
 def test_api_error(mock_post, client):
     mock_response = MagicMock()
+    mock_response.ok = True
     mock_response.json.return_value = {
         "code": 1,
         "error": "Invalid API token"
@@ -266,9 +279,35 @@ def test_api_error(mock_post, client):
 
     with pytest.raises(TronZapException) as exc_info:
         client.get_services()
+    assert isinstance(exc_info.value, ApiException)
     assert str(exc_info.value) == "TronZap API Error 1: Invalid API token"
     assert exc_info.value.code == 1
     assert exc_info.value.message == "Invalid API token"
+
+@patch('requests.post')
+def test_connection_error(mock_post, client):
+    mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+    with pytest.raises(TronZapException) as exc_info:
+        client.get_services()
+    assert isinstance(exc_info.value, ConnectionException)
+    assert exc_info.value.original_error is not None
+
+@patch('requests.post')
+def test_timeout_error(mock_post, client):
+    mock_post.side_effect = requests.exceptions.Timeout("Request timed out")
+
+    with pytest.raises(TronZapException) as exc_info:
+        client.get_services()
+    assert isinstance(exc_info.value, TimeoutException)
+
+@patch('requests.post')
+def test_ssl_error(mock_post, client):
+    mock_post.side_effect = requests.exceptions.SSLError("certificate verify failed")
+
+    with pytest.raises(TronZapException) as exc_info:
+        client.get_services()
+    assert isinstance(exc_info.value, SslException)
 
 @patch('requests.post')
 def test_network_error(mock_post, client):
@@ -276,4 +315,43 @@ def test_network_error(mock_post, client):
 
     with pytest.raises(TronZapException) as exc_info:
         client.get_services()
-    assert "API request failed" in str(exc_info.value)
+    assert isinstance(exc_info.value, NetworkException)
+
+@patch('requests.post')
+def test_rate_limit_error(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.ok = False
+    mock_response.status_code = 429
+    mock_response.text = "Too many requests"
+    mock_post.return_value = mock_response
+
+    with pytest.raises(TronZapException) as exc_info:
+        client.get_services()
+    assert isinstance(exc_info.value, RateLimitException)
+    assert exc_info.value.status_code == 429
+
+@patch('requests.post')
+def test_server_error(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.ok = False
+    mock_response.status_code = 503
+    mock_response.text = "Service unavailable"
+    mock_post.return_value = mock_response
+
+    with pytest.raises(TronZapException) as exc_info:
+        client.get_services()
+    assert isinstance(exc_info.value, ServerException)
+    assert exc_info.value.status_code == 503
+
+@patch('requests.post')
+def test_unauthorized_error(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.ok = False
+    mock_response.status_code = 401
+    mock_response.text = "Unauthorized"
+    mock_post.return_value = mock_response
+
+    with pytest.raises(TronZapException) as exc_info:
+        client.get_services()
+    assert isinstance(exc_info.value, UnauthorizedException)
+    assert exc_info.value.status_code == 401

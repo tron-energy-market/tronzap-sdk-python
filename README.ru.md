@@ -103,55 +103,80 @@ print(recharge_info)
 
 ## Обработка ошибок
 
-SDK выбрасывает исключение `TronZapException`, когда API возвращает ошибку. Каждое исключение содержит свойства `.code` и `.message` для отладки и обработки конкретных случаев.
+SDK использует иерархию исключений для точной обработки ошибок:
+
+```
+TronZapException
+├── ApiException             — ошибки API (code != 0 в ответе)
+├── NetworkException         — сетевые ошибки
+│   ├── ConnectionException  — невозможно подключиться к серверу
+│   ├── TimeoutException     — превышено время ожидания
+│   └── SslException         — ошибки SSL/TLS
+└── HttpException            — HTTP-ответы с кодом не 2xx
+    ├── RateLimitException   — HTTP 429 Too Many Requests
+    ├── UnauthorizedException — HTTP 401/403
+    └── ServerException      — HTTP 5xx
+```
 
 ### Пример
 
 ```python
-from tronzap_sdk import Client, TronZapException, ErrorCode
+from tronzap_sdk import Client
+from tronzap_sdk.exceptions import (
+    ApiException,
+    ConnectionException,
+    HttpException,
+    NetworkException,
+    RateLimitException,
+    ServerException,
+    SslException,
+    TimeoutException,
+    TronZapException,
+    UnauthorizedException,
+    ErrorCode,
+)
 
-client = Client(api_token="your_api_token", api_secret="your_api_secret")
+client = Client(api_token="ваш_api_token", api_secret="ваш_api_secret")
 
 try:
-    balance = client.get_balance()
+    transaction = client.create_energy_transaction("TRX_ADDRESS", 65000, 1)
+except ApiException as e:
+    # Ошибка API (неверные параметры, недостаточно средств и т.д.)
+    print(f"Ошибка API [{e.code}]: {e.message}")
+
+    # Ключ-алиас ошибки, например "invalid_tron_address" или "invalid_tron_address.from_address"
+    if e.error_key:
+        print(f"Ключ ошибки: {e.error_key}")
+
+    if e.code == ErrorCode.INVALID_TRON_ADDRESS:
+        print("Проверьте формат адреса TRON.")
+except RateLimitException:
+    print("Слишком много запросов. Замедлите частоту обращений.")
+except UnauthorizedException:
+    print("Неверный API-токен или подпись.")
+except ServerException as e:
+    print(f"Ошибка сервера TronZap [{e.status_code}].")
+except HttpException as e:
+    print(f"HTTP-ошибка [{e.status_code}]: {e.message}")
+except TimeoutException:
+    print("Превышено время ожидания запроса.")
+except SslException as e:
+    print(f"Ошибка SSL: {e.message}")
+except ConnectionException as e:
+    print(f"Ошибка подключения: {e.message}")
+except NetworkException as e:
+    print(f"Сетевая ошибка: {e.message}")
 except TronZapException as e:
-    if e.code == ErrorCode.AUTH_ERROR:
-        print("Ошибка аутентификации")
-    elif e.code == ErrorCode.INVALID_SERVICE_OR_PARAMS:
-        print("Неверный сервис или параметры")
-    elif e.code == ErrorCode.WALLET_NOT_FOUND:
-        print("Внутренний кошелёк не найден. Обратитесь в службу поддержки.")
-    elif e.code == ErrorCode.INSUFFICIENT_FUNDS:
-        print("Недостаточно средств")
-    elif e.code == ErrorCode.INVALID_TRON_ADDRESS:
-        print("Неверный TRON-адрес")
-    elif e.code == ErrorCode.INVALID_ENERGY_AMOUNT:
-        print("Неверное количество энергии")
-    elif e.code == ErrorCode.INVALID_DURATION:
-        print("Неверная длительность")
-    elif e.code == ErrorCode.TRANSACTION_NOT_FOUND:
-        print("Транзакция не найдена")
-    elif e.code == ErrorCode.ADDRESS_NOT_ACTIVATED:
-        print("Адрес не активирован")
-    elif e.code == ErrorCode.ADDRESS_ALREADY_ACTIVATED:
-        print("Адрес уже активирован")
-    elif e.code == ErrorCode.AML_CHECK_NOT_FOUND:
-        print("AML-проверка не найдена")
-    elif e.code == ErrorCode.SERVICE_NOT_AVAILABLE:
-        print("Сервис недоступен")
-    elif e.code == ErrorCode.INTERNAL_SERVER_ERROR:
-        print("Внутренняя ошибка сервера")
-    else:
-        print(f"Необработанная ошибка {e.code}: {e.message}")
+    print(f"Ошибка [{e.code}]: {e.message}")
 ```
 
-### Коды ошибок
+### Коды ошибок API
 
 | Код  | Константа                      | Описание |
 |------|--------------------------------|----------|
-| 1    | `AUTH_ERROR`                  | Ошибка аутентификации — неверный API токен или подпись |
+| 1    | `AUTH_ERROR`                  | Ошибка аутентификации — неверный API-токен или подпись |
 | 2    | `INVALID_SERVICE_OR_PARAMS`  | Неверный сервис или параметры |
-| 5    | `WALLET_NOT_FOUND`           | Внутренний кошелёк не найден. Обратитесь в службу поддержки. |
+| 5    | `WALLET_NOT_FOUND`           | Внутренний кошелёк не найден. Обратитесь в поддержку. |
 | 6    | `INSUFFICIENT_FUNDS`         | Недостаточно средств |
 | 10   | `INVALID_TRON_ADDRESS`       | Неверный TRON-адрес |
 | 11   | `INVALID_ENERGY_AMOUNT`      | Неверное количество энергии |

@@ -48,6 +48,9 @@ build/
 .env.local
 *.log
 
+# Claude Code
+.claude/
+
 # Distribution / packaging
 share/python-wheels/
 MANIFEST

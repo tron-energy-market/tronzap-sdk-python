@@ -105,49 +105,74 @@ print(recharge_info)
 
 ## Error Handling
 
-The SDK raises `TronZapException` when the API returns an error. Each exception includes a `.code` and a `.message` property for debugging and handling specific cases.
+The SDK uses a hierarchy of exceptions for precise error handling:
+
+```
+TronZapException
+├── ApiException             — API-level errors (response code != 0)
+├── NetworkException         — Network/connectivity errors
+│   ├── ConnectionException  — Could not connect to server
+│   ├── TimeoutException     — Request timed out
+│   └── SslException         — SSL/TLS errors
+└── HttpException            — HTTP non-2xx responses
+    ├── RateLimitException   — HTTP 429 Too Many Requests
+    ├── UnauthorizedException — HTTP 401/403
+    └── ServerException      — HTTP 5xx errors
+```
 
 ### Example
 
 ```python
-from tronzap_sdk import Client, TronZapException, ErrorCode
+from tronzap_sdk import Client
+from tronzap_sdk.exceptions import (
+    ApiException,
+    ConnectionException,
+    HttpException,
+    NetworkException,
+    RateLimitException,
+    ServerException,
+    SslException,
+    TimeoutException,
+    TronZapException,
+    UnauthorizedException,
+    ErrorCode,
+)
 
 client = Client(api_token="your_api_token", api_secret="your_api_secret")
 
 try:
-    balance = client.get_balance()
+    transaction = client.create_energy_transaction("TRX_ADDRESS", 65000, 1)
+except ApiException as e:
+    # API-level error (invalid params, insufficient funds, etc.)
+    print(f"API error [{e.code}]: {e.message}")
+
+    # Error key alias, e.g. "invalid_tron_address" or "invalid_tron_address.from_address"
+    if e.error_key:
+        print(f"Error key: {e.error_key}")
+
+    if e.code == ErrorCode.INVALID_TRON_ADDRESS:
+        print("Check the TRON address format.")
+except RateLimitException:
+    print("Too many requests, please slow down.")
+except UnauthorizedException:
+    print("Invalid API token or signature.")
+except ServerException as e:
+    print(f"TronZap server error [{e.status_code}].")
+except HttpException as e:
+    print(f"HTTP error [{e.status_code}]: {e.message}")
+except TimeoutException:
+    print("Request timed out.")
+except SslException as e:
+    print(f"SSL error: {e.message}")
+except ConnectionException as e:
+    print(f"Connection failed: {e.message}")
+except NetworkException as e:
+    print(f"Network error: {e.message}")
 except TronZapException as e:
-    if e.code == ErrorCode.AUTH_ERROR:
-        print("Authentication error")
-    elif e.code == ErrorCode.INVALID_SERVICE_OR_PARAMS:
-        print("Invalid service or parameters")
-    elif e.code == ErrorCode.WALLET_NOT_FOUND:
-        print("Internal wallet not found. Contact support.")
-    elif e.code == ErrorCode.INSUFFICIENT_FUNDS:
-        print("Insufficient funds")
-    elif e.code == ErrorCode.INVALID_TRON_ADDRESS:
-        print("Invalid TRON address")
-    elif e.code == ErrorCode.INVALID_ENERGY_AMOUNT:
-        print("Invalid energy amount")
-    elif e.code == ErrorCode.INVALID_DURATION:
-        print("Invalid duration")
-    elif e.code == ErrorCode.TRANSACTION_NOT_FOUND:
-        print("Transaction not found")
-    elif e.code == ErrorCode.ADDRESS_NOT_ACTIVATED:
-        print("Address not activated")
-    elif e.code == ErrorCode.ADDRESS_ALREADY_ACTIVATED:
-        print("Address already activated")
-    elif e.code == ErrorCode.AML_CHECK_NOT_FOUND:
-        print("AML check not found")
-    elif e.code == ErrorCode.SERVICE_NOT_AVAILABLE:
-        print("Service not available")
-    elif e.code == ErrorCode.INTERNAL_SERVER_ERROR:
-        print("Internal server error")
-    else:
-        print(f"Unhandled error {e.code}: {e.message}")
+    print(f"Error [{e.code}]: {e.message}")
 ```
 
-### Error Codes
+### API Error Codes
 
 | Code | Constant                        | Description |
 |------|----------------------------------|-------------|
