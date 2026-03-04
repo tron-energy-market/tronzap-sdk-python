@@ -98,7 +98,22 @@ class Client:
         except requests.exceptions.RequestException as e:
             raise NetworkException(str(e), original_error=e) from e
 
-        # 2. HTTP-level errors (non-2xx)
+        # 2. Try to parse JSON
+        response_data = None
+        try:
+            response_data = response.json()
+        except ValueError:
+            pass
+
+        # 3. API-level errors (valid JSON + code !== 0, regardless of HTTP status)
+        if response_data is not None and response_data.get('code') != 0:
+            raise ApiException(
+                response_data.get('error', 'Unknown API error'),
+                code=response_data.get('code', 1),
+                error_key=response_data.get('key'),
+            )
+
+        # 4. HTTP-level errors (non-2xx: invalid JSON or valid JSON with code=0)
         if not response.ok:
             body = response.text
             if response.status_code == 429:
@@ -109,19 +124,13 @@ class Client:
                 raise ServerException(response.status_code, 'Server error', body)
             raise HttpException(response.status_code, f'HTTP error {response.status_code}', body)
 
-        # 3. JSON parsing
-        try:
-            response_data = response.json()
-        except ValueError:
+        # 5. HTTP 2xx but invalid JSON
+        if response_data is None:
             raise ServerException(response.status_code, 'Invalid JSON response', response.text)
 
-        # 4. API-level errors
-        if response_data.get('code') != 0:
-            raise ApiException(
-                response_data.get('error', 'Unknown API error'),
-                code=response_data.get('code', 1),
-                error_key=response_data.get('key'),
-            )
+        # 6. Missing result key in a successful response
+        if 'result' not in response_data:
+            raise ServerException(response.status_code, 'Missing result in response', response.text)
 
         return response_data['result']
 
