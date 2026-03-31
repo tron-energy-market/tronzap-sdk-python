@@ -25,6 +25,11 @@ def main():
         balance = client.get_balance()
         print(balance)
 
+        # Get address info (resources and balances)
+        print("\nAddress info:")
+        address_info = client.get_address_info("TRON_WALLET_ADDRESS")
+        print(address_info)
+
         # Estimate energy amount for a USDT transfer
         print("\nEstimating energy amount:")
         estimate = client.estimate_energy(

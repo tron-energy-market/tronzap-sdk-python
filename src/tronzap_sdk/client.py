@@ -161,6 +161,20 @@ class Client:
         """
         return self._request('POST', '/v1/balance', {})
 
+    def get_address_info(self, address: str) -> Dict[str, Any]:
+        """
+        Get address info (resources and balances).
+
+        Args:
+            address (str): TRON address to query
+
+        Returns:
+            Dict[str, Any]: Address resources (energy, bandwidth) and balances (TRX, USDT)
+        """
+        return self._request('POST', '/v1/address-info', {
+            'address': address
+        })
+
     def estimate_energy(
         self,
         from_address: str,

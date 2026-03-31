@@ -34,6 +34,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Получение информации об адресе (ресурсы и балансы)
+address_info = client.get_address_info("TRX_ADDRESS")
+print(address_info)
+
 # Оценка стоимости энергии для перевода USDT
 estimate = client.estimate_energy('АДРЕС_ОТПРАВИТЕЛЯ_TRX', 'АДРЕС_ПОЛУЧАТЕЛЯ_TRX', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
 print(estimate)
@@ -88,6 +92,7 @@ print(recharge_info)
 - Получение доступных сервисов
 - Получение AML-сервисов
 - Получение баланса аккаунта
+- Получение информации об адресе (ресурсы и балансы)
 - Расчет стоимости энергии
 - Создание транзакций активации адреса
 - Создание транзакций покупки энергии

@@ -34,6 +34,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Obter informações do endereço (recursos e saldos)
+address_info = client.get_address_info("TRX_ADDRESS")
+print(address_info)
+
 # Estimar custo de energia para transferência USDT
 estimate = client.estimate_energy('ENDERECO_ORIGEM_TRX', 'ENDERECO_DESTINO_TRX', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
 print(estimate)
@@ -88,6 +92,7 @@ print(recharge_info)
 - Obter serviços disponíveis
 - Obter serviços AML
 - Obter saldo da conta
+- Obter informações do endereço (recursos e saldos)
 - Calcular custo de energia
 - Criar transações de ativação de endereço
 - Criar transações de compra de energia

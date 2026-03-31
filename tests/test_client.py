@@ -81,6 +81,25 @@ def test_get_balance(mock_post, client):
     assert call_args["url"] == "https://api.tronzap.com/v1/balance"
 
 @patch('requests.post')
+def test_get_address_info(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"resources": {"energy": 131000, "bandwidth": 600}, "balances": {"TRX": 10, "USDT": 2}}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.get_address_info("TKuV4gsNRCqEZwS8zRuHJHnCgvNBce7MPe")
+    assert result == {"resources": {"energy": 131000, "bandwidth": 600}, "balances": {"TRX": 10, "USDT": 2}}
+
+    mock_post.assert_called_once()
+    call_args = mock_post.call_args[1]
+    assert call_args["url"] == "https://api.tronzap.com/v1/address-info"
+    assert json.loads(call_args["data"]) == {
+        "address": "TKuV4gsNRCqEZwS8zRuHJHnCgvNBce7MPe"
+    }
+
+@patch('requests.post')
 def test_estimate_energy(mock_post, client):
     mock_response = MagicMock()
     mock_response.json.return_value = {

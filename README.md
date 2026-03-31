@@ -36,6 +36,10 @@ print(services)
 balance = client.get_balance()
 print(balance)
 
+# Get address info (resources and balances)
+address_info = client.get_address_info("TRX_ADDRESS")
+print(address_info)
+
 # Estimate energy cost for USDT transfer
 estimate = client.estimate_energy('FROM_TRX_ADDRESS', 'TO_TRX_ADDRESS', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
 print(estimate)
@@ -90,6 +94,7 @@ print(recharge_info)
 - Get available services
 - Get AML services
 - Get account balance
+- Get address info (resources and balances)
 - Calculate energy cost
 - Create address activation transactions
 - Create energy purchase transactions
