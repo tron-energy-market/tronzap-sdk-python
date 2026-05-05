@@ -68,6 +68,17 @@ bandwidth = client.create_bandwidth_transaction(
 )
 print(bandwidth)
 
+# Buy a resource bundle (energy + bandwidth in one transaction)
+bundle = client.create_resource_bundle_transaction(
+    address="TRON_WALLET_ADDRESS",
+    energy_amount=65000,
+    bandwidth_amount=350,
+    duration=1,
+    external_id="bundle-1",
+    activate_address=True
+)
+print(bundle)
+
 # Check transaction status
 status = client.check_transaction(id="TRANSACTION_ID")
 print(status)
@@ -99,6 +110,7 @@ print(recharge_info)
 - Create address activation transactions
 - Create energy purchase transactions
 - Create bandwidth purchase transactions
+- Create resource bundle transactions (energy + bandwidth in one purchase)
 - Create and track AML checks
 - Check transaction status
 - Get direct recharge information
@@ -188,11 +200,13 @@ except TronZapException as e:
 | 10   | `INVALID_TRON_ADDRESS`         | Invalid TRON address |
 | 11   | `INVALID_ENERGY_AMOUNT`        | Invalid energy amount |
 | 12   | `INVALID_DURATION`             | Invalid duration |
-| 20   | `TRANSACTION_NOT_FOUND`        | Transaction not found |
+| 20   | `TRANSACTION_NOT_FOUND`        | Transaction/subscription not found |
+| 21   | `CANNOT_STOP_SUBSCRIPTION`     | Cannot stop subscription |
 | 24   | `ADDRESS_NOT_ACTIVATED`        | Address not activated |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`    | Address already activated |
 | 30   | `AML_CHECK_NOT_FOUND`          | AML check not found |
 | 35   | `SERVICE_NOT_AVAILABLE`        | Service not available |
+| 50   | `INVALID_BANDWIDTH_AMOUNT`     | Invalid bandwidth amount |
 | 500  | `INTERNAL_SERVER_ERROR`        | Internal server error – Contact support |
 
 

@@ -66,6 +66,17 @@ bandwidth = client.create_bandwidth_transaction(
 )
 print(bandwidth)
 
+# Comprar pacote de recursos (energia + bandwidth em uma só transação)
+bundle = client.create_resource_bundle_transaction(
+    address="ENDERECO_CARTEIRA_TRON",
+    energy_amount=65000,
+    bandwidth_amount=350,
+    duration=1,
+    external_id="bundle-1",
+    activate_address=True
+)
+print(bundle)
+
 # Verificar status da transação
 status = client.check_transaction(id="ID_TRANSACAO")
 print(status)
@@ -97,6 +108,7 @@ print(recharge_info)
 - Criar transações de ativação de endereço
 - Criar transações de compra de energia
 - Criar transações de compra de bandwidth
+- Criar transações de pacote de recursos (energia + bandwidth)
 - Criar e acompanhar checagens AML
 - Verificar status de transações
 - Obter informações de recarga direta
@@ -186,11 +198,13 @@ except TronZapException as e:
 | 10     | `INVALID_TRON_ADDRESS`         | Endereço TRON inválido |
 | 11     | `INVALID_ENERGY_AMOUNT`        | Quantidade de energia inválida |
 | 12     | `INVALID_DURATION`             | Duração inválida |
-| 20     | `TRANSACTION_NOT_FOUND`        | Transação não encontrada |
+| 20     | `TRANSACTION_NOT_FOUND`        | Transação/assinatura não encontrada |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`     | Não é possível parar a assinatura |
 | 24     | `ADDRESS_NOT_ACTIVATED`        | Endereço não ativado |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`    | Endereço já ativado |
 | 30     | `AML_CHECK_NOT_FOUND`          | Checagem AML não encontrada |
 | 35     | `SERVICE_NOT_AVAILABLE`        | Serviço não disponível |
+| 50     | `INVALID_BANDWIDTH_AMOUNT`     | Quantidade de bandwidth inválida |
 | 500    | `INTERNAL_SERVER_ERROR`        | Erro interno do servidor – Contate o suporte |
 
 

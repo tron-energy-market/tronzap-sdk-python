@@ -66,6 +66,17 @@ bandwidth = client.create_bandwidth_transaction(
 )
 print(bandwidth)
 
+# Comprar un paquete de recursos (energía + ancho de banda en una sola transacción)
+bundle = client.create_resource_bundle_transaction(
+    address="DIRECCION_BILLETERA_TRON",
+    energy_amount=65000,
+    bandwidth_amount=350,
+    duration=1,
+    external_id="bundle-1",
+    activate_address=True
+)
+print(bundle)
+
 # Verificar estado de la transacción
 status = client.check_transaction(id="ID_TRANSACCION")
 print(status)
@@ -97,6 +108,7 @@ print(recharge_info)
 - Crear transacciones de activación de dirección
 - Crear transacciones de compra de energía
 - Crear transacciones de compra de ancho de banda
+- Crear transacciones de paquete de recursos (energía + ancho de banda)
 - Crear y seguir chequeos AML
 - Verificar estado de transacciones
 - Obtener información de recarga directa
@@ -186,11 +198,13 @@ except TronZapException as e:
 | 10     | `INVALID_TRON_ADDRESS`         | Dirección TRON inválida |
 | 11     | `INVALID_ENERGY_AMOUNT`        | Cantidad de energía inválida |
 | 12     | `INVALID_DURATION`             | Duración inválida |
-| 20     | `TRANSACTION_NOT_FOUND`        | Transacción no encontrada |
+| 20     | `TRANSACTION_NOT_FOUND`        | Transacción/suscripción no encontrada |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`     | No se puede detener la suscripción |
 | 24     | `ADDRESS_NOT_ACTIVATED`        | Dirección no activada |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`    | La dirección ya está activada |
 | 30     | `AML_CHECK_NOT_FOUND`          | Chequeo AML no encontrado |
 | 35     | `SERVICE_NOT_AVAILABLE`        | Servicio no disponible |
+| 50     | `INVALID_BANDWIDTH_AMOUNT`     | Cantidad de ancho de banda inválida |
 | 500    | `INTERNAL_SERVER_ERROR`        | Error interno del servidor – Contacta con soporte |
 
 

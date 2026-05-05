@@ -66,6 +66,17 @@ bandwidth = client.create_bandwidth_transaction(
 )
 print(bandwidth)
 
+# Покупка пакета ресурсов (energy + bandwidth одной транзакцией)
+bundle = client.create_resource_bundle_transaction(
+    address="АДРЕС_КОШЕЛЬКА_TRON",
+    energy_amount=65000,
+    bandwidth_amount=350,
+    duration=1,
+    external_id="bundle-1",
+    activate_address=True
+)
+print(bundle)
+
 # Проверка статуса транзакции
 status = client.check_transaction(id="ID_ТРАНЗАКЦИИ")
 print(status)
@@ -97,6 +108,7 @@ print(recharge_info)
 - Создание транзакций активации адреса
 - Создание транзакций покупки энергии
 - Создание транзакций покупки bandwidth
+- Создание транзакций пакета ресурсов (energy + bandwidth)
 - Создание и отслеживание AML-проверок
 - Проверка статуса транзакций
 - Получение информации о прямом пополнении
@@ -186,11 +198,13 @@ except TronZapException as e:
 | 10   | `INVALID_TRON_ADDRESS`       | Неверный TRON-адрес |
 | 11   | `INVALID_ENERGY_AMOUNT`      | Неверное количество энергии |
 | 12   | `INVALID_DURATION`           | Неверная длительность |
-| 20   | `TRANSACTION_NOT_FOUND`      | Транзакция не найдена |
+| 20   | `TRANSACTION_NOT_FOUND`      | Транзакция/подписка не найдена |
+| 21   | `CANNOT_STOP_SUBSCRIPTION`   | Невозможно остановить подписку |
 | 24   | `ADDRESS_NOT_ACTIVATED`      | Адрес не активирован |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`  | Адрес уже активирован |
 | 30   | `AML_CHECK_NOT_FOUND`        | AML-проверка не найдена |
 | 35   | `SERVICE_NOT_AVAILABLE`      | Сервис недоступен |
+| 50   | `INVALID_BANDWIDTH_AMOUNT`   | Неверное количество bandwidth |
 | 500  | `INTERNAL_SERVER_ERROR`      | Внутренняя ошибка сервера — обратитесь в поддержку |
 
 ## Поддержка

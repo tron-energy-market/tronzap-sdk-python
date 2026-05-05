@@ -71,6 +71,18 @@ def main():
         )
         print(bandwidth)
 
+        # Create a resource bundle transaction (energy + bandwidth in one purchase)
+        print("\nCreating resource bundle transaction:")
+        bundle = client.create_resource_bundle_transaction(
+            address="TRON_WALLET_ADDRESS",
+            energy_amount=65000,
+            bandwidth_amount=350,
+            duration=1,
+            external_id="bundle-example",
+            activate_address=True
+        )
+        print(bundle)
+
         # AML services
         print("\nAvailable AML services:")
         aml_services = client.get_aml_services()

@@ -178,8 +178,7 @@ def test_create_energy_transaction(mock_post, client):
         "service": "energy",
         "params": {
             "address": "test_address",
-            "energy_amount": 131000,
-            "amount": 131000,
+            "amounts": {"energy": 131000},
             "duration": 1,
             "activate_address": True
         }
@@ -208,10 +207,43 @@ def test_create_bandwidth_transaction(mock_post, client):
         "service": "bandwidth",
         "params": {
             "address": "test_address",
-            "amount": 1000,
+            "amounts": {"bandwidth": 1000},
             "duration": 1
         },
         "external_id": "ext-1"
+    }
+
+@patch('requests.post')
+def test_create_resource_bundle_transaction(mock_post, client):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "code": 0,
+        "result": {"transaction_id": "bundle_id"}
+    }
+    mock_post.return_value = mock_response
+
+    result = client.create_resource_bundle_transaction(
+        address="test_address",
+        energy_amount=65000,
+        bandwidth_amount=350,
+        duration=1,
+        external_id="bundle-1",
+        activate_address=True
+    )
+    assert result == {"transaction_id": "bundle_id"}
+
+    mock_post.assert_called_once()
+    call_args = mock_post.call_args[1]
+    assert call_args["url"] == "https://api.tronzap.com/v1/transaction/new"
+    assert json.loads(call_args["data"]) == {
+        "service": "resource_bundle",
+        "params": {
+            "address": "test_address",
+            "amounts": {"energy": 65000, "bandwidth": 350},
+            "duration": 1,
+            "activate_address": True
+        },
+        "external_id": "bundle-1"
     }
 
 @patch('requests.post')

@@ -246,8 +246,9 @@ class Client:
             'service': 'energy',
             'params': {
                 'address': address,
-                'energy_amount': energy_amount,
-                'amount': energy_amount,
+                'amounts': {
+                    'energy': energy_amount
+                },
                 'duration': duration
             }
         }
@@ -281,10 +282,55 @@ class Client:
             'service': 'bandwidth',
             'params': {
                 'address': address,
-                'amount': amount,
+                'amounts': {
+                    'bandwidth': amount
+                },
                 'duration': 1
             }
         }
+
+        if external_id:
+            params['external_id'] = external_id
+
+        return self._request('POST', '/v1/transaction/new', params)
+
+    def create_resource_bundle_transaction(
+        self,
+        address: str,
+        energy_amount: int,
+        bandwidth_amount: int,
+        duration: int = 1,
+        external_id: Optional[str] = None,
+        activate_address: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Create a new transaction for a resource bundle (energy + bandwidth in one purchase).
+
+        Args:
+            address (str): TRON wallet address
+            energy_amount (int): Amount of energy to purchase
+            bandwidth_amount (int): Amount of bandwidth to purchase
+            duration (int, optional): Duration in hours. Defaults to 1.
+            external_id (Optional[str], optional): External transaction ID.
+            activate_address (bool, optional): Whether to activate the address.
+
+        Returns:
+            Dict[str, Any]: Transaction data
+        """
+        params = {
+            'service': 'resource_bundle',
+            'params': {
+                'address': address,
+                'amounts': {
+                    'energy': energy_amount,
+                    'bandwidth': bandwidth_amount
+                },
+                'duration': duration
+            }
+        }
+
+        if activate_address:
+            params['params']['activate_address'] = True
 
         if external_id:
             params['external_id'] = external_id
