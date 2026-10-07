@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-10-07
 
 Versions 1.1.0 to 1.4.0 were tagged on GitHub but never published to PyPI, so this is the first release on PyPI
 since 1.0.7 and brings everything below to `pip install tronzap-sdk`.
