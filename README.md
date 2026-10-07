@@ -25,7 +25,8 @@ from tronzap_sdk import Client
 # Initialize the client
 client = Client(
     api_token="your_api_token",
-    api_secret="your_api_secret"
+    api_secret="your_api_secret",
+    timeout=30,  # Seconds, optional; 30 by default
 )
 
 # Get available services
@@ -41,21 +42,21 @@ address_info = client.get_address_info("TRX_ADDRESS")
 print(address_info)
 
 # Estimate energy cost for USDT transfer
-estimate = client.estimate_energy('FROM_TRX_ADDRESS', 'TO_TRX_ADDRESS', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t')
+estimate = client.estimate_energy('FROM_TRX_ADDRESS', 'TO_TRX_ADDRESS')
 print(estimate)
 
 # Calculate energy cost
 calculation = client.calculate(
     address="TRON_WALLET_ADDRESS",
-    energy=65150  # Recommended amount for USDT transfers
+    energy=65000  # Recommended amount for USDT transfers
 )
 print(calculation)
 
 # Create energy transaction
 transaction = client.create_energy_transaction(
     address="TRON_WALLET_ADDRESS",
-    energy_amount=65150, # From 60000
-    duration=1, # Possible values 1 or 24 hours
+    energy_amount=65000,
+    duration=1,  # Hours: one of the durations get_services() lists
     activate_address=True  # If the address needs activation
 )
 print(transaction)
@@ -63,7 +64,7 @@ print(transaction)
 # Buy bandwidth
 bandwidth = client.create_bandwidth_transaction(
     address="TRON_WALLET_ADDRESS",
-    amount=1000,
+    amount=345,
     external_id="bandwidth-1"
 )
 print(bandwidth)
@@ -72,7 +73,7 @@ print(bandwidth)
 bundle = client.create_resource_bundle_transaction(
     address="TRON_WALLET_ADDRESS",
     energy_amount=65000,
-    bandwidth_amount=350,
+    bandwidth_amount=345,
     duration=1,
     external_id="bundle-1",
     activate_address=True
@@ -117,7 +118,7 @@ print(recharge_info)
 
 ## Requirements
 
-- Python 3.7 or higher
+- Python 3.9 or higher
 - requests >= 2.25.0
 
 ## Error Handling
@@ -127,6 +128,7 @@ The SDK uses a hierarchy of exceptions for precise error handling:
 ```
 TronZapException
 ├── ApiException             — API-level errors (response code != 0)
+├── InvalidRequestException  — Invalid arguments, rejected before sending (also a ValueError)
 ├── NetworkException         — Network/connectivity errors
 │   ├── ConnectionException  — Could not connect to server
 │   ├── TimeoutException     — Request timed out
@@ -152,6 +154,7 @@ from tronzap_sdk.exceptions import (
     TimeoutException,
     TronZapException,
     UnauthorizedException,
+    InvalidRequestException,
     ErrorCode,
 )
 
@@ -167,8 +170,13 @@ except ApiException as e:
     if e.error_key:
         print(f"Error key: {e.error_key}")
 
+    # Quote it when contacting support
+    print(f"Request ID: {e.request_id}")
+
     if e.code == ErrorCode.INVALID_TRON_ADDRESS:
         print("Check the TRON address format.")
+except InvalidRequestException as e:
+    print(f"Invalid arguments: {e.message}")
 except RateLimitException:
     print("Too many requests, please slow down.")
 except UnauthorizedException:
@@ -209,6 +217,15 @@ except TronZapException as e:
 | 50   | `INVALID_BANDWIDTH_AMOUNT`     | Invalid bandwidth amount |
 | 500  | `INTERNAL_SERVER_ERROR`        | Internal server error – Contact support |
 
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt -e .
+pytest
+```
+
+The tests run against a local HTTP/TLS server and never call the real API. `examples/basic_usage.py` is a smoke test against a real environment; the instructions are at the top of the file.
 
 ## Support
 
