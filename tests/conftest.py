@@ -84,7 +84,11 @@ def _start(server_state: ApiServer, ssl_context: Optional[ssl.SSLContext]) -> Th
         def log_message(self, format: str, *args: Any) -> None:
             pass
 
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class Server(ThreadingHTTPServer):
+        # The default backlog of 5 makes Linux reset connections under the concurrency test.
+        request_queue_size = 128
+
+    httpd = Server(("127.0.0.1", 0), Handler)
     httpd.daemon_threads = True
     if ssl_context is not None:
         httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
