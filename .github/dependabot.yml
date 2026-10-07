@@ -1,0 +1,25 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # The SDK's own dependency: raising it raises the minimum for every consumer.
+      - dependency-name: requests
+    groups:
+      development-dependencies:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
