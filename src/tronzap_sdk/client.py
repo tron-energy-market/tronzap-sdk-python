@@ -4,24 +4,24 @@ TronZap SDK Client
 This module provides a Python client for interacting with the TronZap API to purchase TRX energy for low-cost USDT transfers.
 """
 
-import json
 import hashlib
+import json
+from typing import Any, Dict, Optional
+
 import requests
-from typing import Dict, Optional, Union, Any
 
 from .exceptions import (
     ApiException,
     ConnectionException,
-    ErrorCode,
     HttpException,
     NetworkException,
     RateLimitException,
     ServerException,
     SslException,
     TimeoutException,
-    TronZapException,
     UnauthorizedException,
 )
+
 
 class Client:
     """

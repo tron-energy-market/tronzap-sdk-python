@@ -1,16 +1,20 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "tronzap-sdk"
-version = "1.4.0"
+dynamic = ["version"]
 description = "Official Python SDK for the Tron Energy API by TronZap.com. Buy Tron energy for cheap USDT transfers on TronZap.com"
 readme = "README.md"
-requires-python = ">=3"
-license = {text = "MIT"}
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Tron Energy Market", email = "support@tronzap.com"}
+]
+dependencies = [
+    "requests>=2.25.0",
 ]
 keywords = [
     "TronZap",
@@ -37,8 +41,15 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3"
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
 ]
 
 [project.urls]
@@ -49,18 +60,25 @@ Issues = "https://github.com/tron-energy-market/tronzap-sdk-python/issues"
 "Buy Tron Energy" = "https://tronzap.com"
 Support = "https://t.me/tronzap_bot"
 
-[tool.black]
-line-length = 100
-target-version = ['py3']
-include = '\.pyi?$'
+[tool.setuptools.dynamic]
+version = {attr = "tronzap_sdk.__version__"}
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 100
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tronzap_sdk = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501"]
 
 [tool.mypy]
-python_version = "3"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -68,7 +86,5 @@ check_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --tb=short"
+pythonpath = ["src"]
+addopts = "--tb=short"
