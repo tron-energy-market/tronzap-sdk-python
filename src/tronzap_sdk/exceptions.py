@@ -65,9 +65,25 @@ class TronZapException(Exception):
 class ApiException(TronZapException):
     """API-level error (response body code != 0)."""
 
-    def __init__(self, message: str, code: int = 1, error_key: Optional[str] = None):
+    def __init__(
+        self,
+        message: str,
+        code: int = 1,
+        error_key: Optional[str] = None,
+        request_id: Optional[str] = None,
+        status_code: Optional[int] = None,
+    ):
         super().__init__(message, code)
         self.error_key: Optional[str] = error_key
+        self.request_id: Optional[str] = request_id
+        self.status_code: Optional[int] = status_code
+
+
+class InvalidRequestException(TronZapException, ValueError):
+    """Invalid arguments, rejected before any request is sent."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code=0)
 
 
 class NetworkException(TronZapException):

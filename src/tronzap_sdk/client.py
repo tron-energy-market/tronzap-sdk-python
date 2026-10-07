@@ -6,7 +6,7 @@ This module provides a Python client for interacting with the TronZap API to pur
 
 import hashlib
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -14,6 +14,7 @@ from .exceptions import (
     ApiException,
     ConnectionException,
     HttpException,
+    InvalidRequestException,
     NetworkException,
     RateLimitException,
     ServerException,
@@ -21,6 +22,19 @@ from .exceptions import (
     TimeoutException,
     UnauthorizedException,
 )
+
+DEFAULT_TIMEOUT = 30.0
+
+_NOT_JSON = object()
+
+
+def _require(value: Optional[str], name: str) -> None:
+    if not value:
+        raise InvalidRequestException(f"{name} is required")
+
+
+def _at_least_one(value: int, default: int) -> int:
+    return value if value >= 1 else default
 
 
 class Client:
@@ -34,7 +48,8 @@ class Client:
         self,
         api_token: str,
         api_secret: str,
-        base_url: str = "https://api.tronzap.com"
+        base_url: str = "https://api.tronzap.com",
+        timeout: float = DEFAULT_TIMEOUT,
     ):
         """
         Initialize the TronZap client.
@@ -43,17 +58,19 @@ class Client:
             api_token (str): Your API token
             api_secret (str): Your API secret for signature generation
             base_url (str, optional): Base API URL. Defaults to "https://api.tronzap.com"
+            timeout (float, optional): Seconds to wait for the API to connect and to answer. Defaults to 30.
         """
         self.api_token = api_token
         self.api_secret = api_secret
         self.base_url = base_url.rstrip('/')
+        self.timeout = timeout
 
     def _request(
         self,
         method: str,
         endpoint: str,
         params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """
         Make an API request to TronZap.
 
@@ -88,6 +105,7 @@ class Client:
                 data=request_body,
                 headers=headers,
                 verify=True,
+                timeout=self.timeout,
             )
         except requests.exceptions.SSLError as e:
             raise SslException(str(e), original_error=e) from e
@@ -99,19 +117,25 @@ class Client:
             raise NetworkException(str(e), original_error=e) from e
 
         # 2. Try to parse JSON
-        response_data = None
+        response_data: Any = _NOT_JSON
         try:
             response_data = response.json()
         except ValueError:
             pass
 
         # 3. API-level errors (valid JSON + code !== 0, regardless of HTTP status)
-        if response_data is not None and response_data.get('code') != 0:
-            raise ApiException(
-                response_data.get('error', 'Unknown API error'),
-                code=response_data.get('code', 1),
-                error_key=response_data.get('key'),
-            )
+        if response_data is not _NOT_JSON:
+            if not isinstance(response_data, dict):
+                raise ApiException('Unknown API error', code=1, status_code=response.status_code)
+            if response_data.get('code') != 0:
+                code = response_data.get('code')
+                raise ApiException(
+                    response_data.get('error') or 'Unknown API error',
+                    code=1 if code is None else code,
+                    error_key=response_data.get('key'),
+                    request_id=response_data.get('request_id'),
+                    status_code=response.status_code,
+                )
 
         # 4. HTTP-level errors (non-2xx: invalid JSON or valid JSON with code=0)
         if not response.ok:
@@ -125,11 +149,11 @@ class Client:
             raise HttpException(response.status_code, f'HTTP error {response.status_code}', body)
 
         # 5. HTTP 2xx but invalid JSON
-        if response_data is None:
+        if response_data is _NOT_JSON:
             raise ServerException(response.status_code, 'Invalid JSON response', response.text)
 
         # 6. Missing result key in a successful response
-        if 'result' not in response_data:
+        if response_data.get('result') is None:
             raise ServerException(response.status_code, 'Missing result in response', response.text)
 
         return response_data['result']
@@ -143,12 +167,12 @@ class Client:
         """
         return self._request('POST', '/v1/services', {})
 
-    def get_aml_services(self) -> Dict[str, Any]:
+    def get_aml_services(self) -> List[Dict[str, Any]]:
         """
         Get available AML services.
 
         Returns:
-            Dict[str, Any]: AML services data
+            List[Dict[str, Any]]: AML services data
         """
         return self._request('POST', '/v1/aml-checks', {})
 
@@ -171,6 +195,7 @@ class Client:
         Returns:
             Dict[str, Any]: Address resources (energy, bandwidth) and balances (TRX, USDT)
         """
+        _require(address, 'address')
         return self._request('POST', '/v1/address-info', {
             'address': address
         })
@@ -187,16 +212,20 @@ class Client:
         Args:
             from_address (str): TRON wallet address of the sender
             to_address (str): TRON wallet address of the recipient
-            contract_address (str, optional): TRON contract address. Defaults to 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'.
+            contract_address (str, optional): TRON contract address. Leave empty to estimate a USDT (TRC20) transfer.
 
         Returns:
             Dict[str, Any]: Energy estimate result
         """
-        return self._request('POST', '/v1/estimate-energy', {
+        _require(from_address, 'from_address')
+        _require(to_address, 'to_address')
+        params: Dict[str, Any] = {
             'from_address': from_address,
             'to_address': to_address,
-            'contract_address': contract_address
-        })
+        }
+        if contract_address:
+            params['contract_address'] = contract_address
+        return self._request('POST', '/v1/estimate-energy', params)
 
     def calculate(
         self,
@@ -215,10 +244,11 @@ class Client:
         Returns:
             Dict[str, Any]: Calculation result
         """
+        _require(address, 'address')
         return self._request('POST', '/v1/calculate', {
             'address': address,
-            'energy': energy,
-            'duration': duration
+            'amount': energy,
+            'duration': _at_least_one(duration, 1)
         })
 
     def create_energy_transaction(
@@ -242,14 +272,15 @@ class Client:
         Returns:
             Dict[str, Any]: Transaction data
         """
-        params = {
+        _require(address, 'address')
+        params: Dict[str, Any] = {
             'service': 'energy',
             'params': {
                 'address': address,
                 'amounts': {
                     'energy': energy_amount
                 },
-                'duration': duration
+                'duration': _at_least_one(duration, 1)
             }
         }
 
@@ -278,7 +309,8 @@ class Client:
         Returns:
             Dict[str, Any]: Transaction data
         """
-        params = {
+        _require(address, 'address')
+        params: Dict[str, Any] = {
             'service': 'bandwidth',
             'params': {
                 'address': address,
@@ -317,7 +349,8 @@ class Client:
         Returns:
             Dict[str, Any]: Transaction data
         """
-        params = {
+        _require(address, 'address')
+        params: Dict[str, Any] = {
             'service': 'resource_bundle',
             'params': {
                 'address': address,
@@ -325,7 +358,7 @@ class Client:
                     'energy': energy_amount,
                     'bandwidth': bandwidth_amount
                 },
-                'duration': duration
+                'duration': _at_least_one(duration, 1)
             }
         }
 
@@ -352,7 +385,8 @@ class Client:
         Returns:
             Dict[str, Any]: Transaction data
         """
-        params = {
+        _require(address, 'address')
+        params: Dict[str, Any] = {
             'service': 'activate_address',
             'params': {
                 'address': address
@@ -385,6 +419,9 @@ class Client:
         Returns:
             Dict[str, Any]: AML check data
         """
+        _require(type, 'type')
+        _require(network, 'network')
+        _require(address, 'address')
         params: Dict[str, Any] = {
             'type': type,
             'network': network,
@@ -409,6 +446,7 @@ class Client:
         Returns:
             Dict[str, Any]: AML status data
         """
+        _require(id, 'id')
         return self._request('POST', '/v1/aml-checks/check', {'id': id})
 
     def get_aml_history(
@@ -429,8 +467,8 @@ class Client:
             Dict[str, Any]: AML history data
         """
         params: Dict[str, Any] = {
-            'page': page,
-            'per_page': per_page
+            'page': _at_least_one(page, 1),
+            'per_page': _at_least_one(per_page, 10)
         }
 
         if status is not None:
@@ -454,7 +492,9 @@ class Client:
         Returns:
             Dict[str, Any]: Transaction status data
         """
-        params = {}
+        if not id and not external_id:
+            raise InvalidRequestException('either id or external_id is required')
+        params: Dict[str, Any] = {}
         if id:
             params['id'] = id
         if external_id:
