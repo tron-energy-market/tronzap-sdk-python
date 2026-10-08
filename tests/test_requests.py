@@ -175,10 +175,10 @@ def test_signature_is_sha256_of_the_body_actually_sent(
 
 
 def test_signature_covers_non_ascii_body(client: Client, server: ApiServer) -> None:
-    client.check_transaction(external_id="замовлення-№1")
+    client.check_transaction(external_id="pedido-año-订单-😀")
 
     received = server.last
-    assert received.json == {"external_id": "замовлення-№1"}
+    assert received.json == {"external_id": "pedido-año-订单-😀"}
     assert received.headers["x-signature"] == hashlib.sha256(received.body + API_SECRET.encode()).hexdigest()
 
 
