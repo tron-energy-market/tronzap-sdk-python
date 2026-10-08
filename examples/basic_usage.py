@@ -77,8 +77,8 @@ def main() -> int:
         services = client.get_services()
         for rate in services.get("energy") or []:
             print(
-                f"  energy {rate.get('duration')}h {rate.get('min_energy')}..{rate.get('max_energy')} "
-                f"at {rate.get('price')} per unit (65k = {rate.get('price_65k')})"
+                f"  energy {rate.get('duration')}h {rate.get('min_amount')}..{rate.get('max_amount')} "
+                f"at {rate.get('price')} per 1000 units (65k = {rate.get('price_65k')})"
             )
         for rate in services.get("bandwidth") or []:
             print(
@@ -121,7 +121,7 @@ def main() -> int:
     def calculate(value: str) -> None:
         calculation = client.calculate(value, energy=ENERGY)
         print(
-            f"  {calculation.get('energy')} energy for {calculation.get('duration')}h "
+            f"  {calculation.get('amount')} energy for {calculation.get('duration')}h "
             f"costs {calculation.get('total')}"
         )
 
@@ -133,7 +133,7 @@ def main() -> int:
 
     def estimate_energy(value: str) -> None:
         estimate = client.estimate_energy(value, to_address or "")
-        print(f"  {estimate.get('energy')} energy, total {estimate.get('total')}")
+        print(f"  {estimate.get('amount')} energy, total {estimate.get('total')}")
 
     optional_step("estimate_energy", from_address if to_address else None, estimate_energy)
 
