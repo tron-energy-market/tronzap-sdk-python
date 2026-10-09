@@ -23,6 +23,11 @@ All notable changes to this project are documented in this file. The format is b
 - The descriptions of error codes 10 (`INVALID_TRON_ADDRESS`) and 21 (`CANNOT_STOP_SUBSCRIPTION`) say that code 10
   also means the address already has an active subscription, and that a subscription with a transactions limit
   cannot be stopped.
+- A hash AML check (`create_aml_check` with `type="hash"`) without a `direction`, or with an empty one, now sends
+  `"direction": "deposit"` explicitly instead of leaving the field out. An address check is unchanged.
+- The `create_aml_check` docstring and the README explain that for a hash check `address` is the recipient address
+  of the transaction, that `direction` says which side you are on (`deposit` if the funds were sent to your
+  address, `withdrawal` if you sent them), and that the risk is scored for the counterparty.
 - `examples/basic_usage.py` reads the API's `amount`, `min_amount` and `max_amount` fields instead of the deprecated
   `energy`, `min_energy` and `max_energy`.
 

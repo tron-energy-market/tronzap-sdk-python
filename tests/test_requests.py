@@ -134,6 +134,21 @@ CASES: Dict[str, Any] = {
         "/v1/aml-checks/new",
         {"type": "hash", "network": "TRX", "address": ADDRESS, "hash": "abc123", "direction": "deposit"},
     ),
+    "create_aml_check hash without direction": (
+        lambda c: c.create_aml_check("hash", "TRX", ADDRESS, hash="abc123"),
+        "/v1/aml-checks/new",
+        {"type": "hash", "network": "TRX", "address": ADDRESS, "hash": "abc123", "direction": "deposit"},
+    ),
+    "create_aml_check hash with empty direction": (
+        lambda c: c.create_aml_check("hash", "TRX", ADDRESS, hash="abc123", direction=""),
+        "/v1/aml-checks/new",
+        {"type": "hash", "network": "TRX", "address": ADDRESS, "hash": "abc123", "direction": "deposit"},
+    ),
+    "create_aml_check hash withdrawal": (
+        lambda c: c.create_aml_check("hash", "TRX", ADDRESS, hash="abc123", direction="withdrawal"),
+        "/v1/aml-checks/new",
+        {"type": "hash", "network": "TRX", "address": ADDRESS, "hash": "abc123", "direction": "withdrawal"},
+    ),
     "check_aml_status": (
         lambda c: c.check_aml_status("aml-1"),
         "/v1/aml-checks/check",

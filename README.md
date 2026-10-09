@@ -102,6 +102,13 @@ recharge_info = client.get_direct_recharge_info()
 print(recharge_info)
 ```
 
+For a hash check, `address` is the recipient address of the transaction, where
+the funds were received, and `direction` says which side you are on: `"deposit"`
+if the funds were sent to your address (`address` is your address), `"withdrawal"`
+if you sent them (`address` is the external recipient's address). The risk is
+scored for the counterparty: the sender of a deposit, the recipient of a
+withdrawal. If you omit `direction` for a hash check, the SDK sends `"deposit"`.
+
 ## Features
 
 - Get available services

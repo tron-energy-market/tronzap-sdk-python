@@ -423,9 +423,14 @@ class Client:
         Args:
             type (str): AML service type: address or hash
             network (str): Network code (e.g. TRX, BTC, ETH)
-            address (str): Wallet address
+            address (str): For type=address, the address to screen. For type=hash, the
+                recipient address of the transaction, where the funds were received.
             hash (Optional[str]): Transaction hash (for type=hash)
-            direction (Optional[str]): Direction for hash checks (deposit or withdrawal)
+            direction (Optional[str]): For type=hash, which side of the transaction you are on:
+                deposit if the funds were sent to your address (address is your address),
+                withdrawal if you sent them (address is the external recipient's address).
+                The risk is scored for the counterparty: the sender of a deposit, the
+                recipient of a withdrawal. When omitted for a hash check, the SDK sends deposit.
 
         Returns:
             Dict[str, Any]: AML check data
@@ -442,7 +447,9 @@ class Client:
         if hash is not None:
             params['hash'] = hash
 
-        if direction is not None:
+        if type == 'hash' and not direction:
+            params['direction'] = 'deposit'
+        elif direction is not None:
             params['direction'] = direction
 
         return self._request('POST', '/v1/aml-checks/new', params)

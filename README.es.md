@@ -100,6 +100,14 @@ recharge_info = client.get_direct_recharge_info()
 print(recharge_info)
 ```
 
+En una verificación por hash, `address` es la dirección del destinatario de la
+transacción, donde se recibieron los fondos, y `direction` indica en qué lado
+estás: `"deposit"` si los fondos llegaron a tu dirección (`address` es tu
+dirección), `"withdrawal"` si los enviaste tú (`address` es la dirección del
+destinatario externo). El riesgo se calcula para la contraparte: el remitente en
+un deposit, el destinatario en un withdrawal. Si omites `direction` en una
+verificación por hash, el SDK envía `"deposit"`.
+
 ## Características
 
 - Obtener servicios disponibles
