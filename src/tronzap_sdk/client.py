@@ -37,6 +37,17 @@ def _at_least_one(value: int, default: int) -> int:
     return value if value >= 1 else default
 
 
+def _id_params(id: Optional[str], external_id: Optional[str]) -> Dict[str, Any]:
+    if not id and not external_id:
+        raise InvalidRequestException('either id or external_id is required')
+    params: Dict[str, Any] = {}
+    if id:
+        params['id'] = id
+    if external_id:
+        params['external_id'] = external_id
+    return params
+
+
 class Client:
     """
     TronZap API Client
@@ -492,15 +503,7 @@ class Client:
         Returns:
             Dict[str, Any]: Transaction status data
         """
-        if not id and not external_id:
-            raise InvalidRequestException('either id or external_id is required')
-        params: Dict[str, Any] = {}
-        if id:
-            params['id'] = id
-        if external_id:
-            params['external_id'] = external_id
-
-        return self._request('POST', '/v1/transaction/check', params)
+        return self._request('POST', '/v1/transaction/check', _id_params(id, external_id))
 
     def get_direct_recharge_info(self) -> Dict[str, Any]:
         """
@@ -510,3 +513,127 @@ class Client:
             Dict[str, Any]: Direct recharge information
         """
         return self._request('POST', '/v1/direct-recharge-info', {})
+
+    def get_subscriptions(self) -> Dict[str, Any]:
+        """
+        Get the subscription plans on sale.
+
+        Returns:
+            Dict[str, Any]: Plans keyed by subscription ID (such as "unlimited_energy"), in the API's order.
+            Each plan has id, name, activation_fee, initial_price, price (per transaction),
+            transactions_limit (0 for no limit) and duration_days (0 for no time limit).
+        """
+        plans = self._request('POST', '/v1/subscriptions', {})
+        return plans if plans else {}
+
+    def start_subscription(
+        self,
+        subscription_id: str,
+        address: str,
+        duration_days: int = 0,
+        transactions_limit: int = 0,
+        external_id: Optional[str] = None,
+        activate_address: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Subscribe an address to a plan. Starting a subscription charges the plan's initial price.
+
+        Args:
+            subscription_id (str): Plan key from get_subscriptions(), such as "unlimited_energy",
+                not the plan's numeric id.
+            address (str): TRON wallet address the subscription serves
+            duration_days (int, optional): Days the subscription runs. Defaults to 0, no time limit.
+            transactions_limit (int, optional): Transactions the subscription covers. Defaults to 0, no limit.
+            external_id (Optional[str], optional): External subscription ID.
+            activate_address (bool, optional): Whether to activate the address.
+
+        Returns:
+            Dict[str, Any]: Subscription data, including the params it was started with
+        """
+        _require(subscription_id, 'subscription_id')
+        _require(address, 'address')
+        if duration_days < 0:
+            raise InvalidRequestException('duration_days cannot be negative')
+        if transactions_limit < 0:
+            raise InvalidRequestException('transactions_limit cannot be negative')
+        params: Dict[str, Any] = {
+            'subscription_id': subscription_id,
+            'params': {
+                'address': address,
+                'duration': duration_days,
+                'transactions_limit': transactions_limit
+            }
+        }
+
+        if activate_address:
+            params['params']['activate_address'] = True
+
+        if external_id:
+            params['external_id'] = external_id
+
+        return self._request('POST', '/v1/subscription/start', params)
+
+    def check_subscription(
+        self,
+        id: Optional[str] = None,
+        external_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Check subscription status.
+
+        Args:
+            id (Optional[str], optional): Subscription ID assigned by the API
+            external_id (Optional[str], optional): External subscription ID.
+            Note: Either id or external_id must be provided.
+
+        Returns:
+            Dict[str, Any]: Subscription data, including the params it was started with
+        """
+        return self._request('POST', '/v1/subscription/check', _id_params(id, external_id))
+
+    def stop_subscription(
+        self,
+        id: Optional[str] = None,
+        external_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Stop a subscription. A subscription with a transactions limit cannot be stopped
+        and fails with ErrorCode.CANNOT_STOP_SUBSCRIPTION.
+
+        Args:
+            id (Optional[str], optional): Subscription ID assigned by the API
+            external_id (Optional[str], optional): External subscription ID.
+            Note: Either id or external_id must be provided.
+
+        Returns:
+            Dict[str, Any]: Subscription data, including stopped_at and the params it was started with
+        """
+        return self._request('POST', '/v1/subscription/stop', _id_params(id, external_id))
+
+    def get_subscription_history(
+        self,
+        page: int = 1,
+        per_page: int = 10,
+        status: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get subscription history, newest first.
+
+        Args:
+            page (int, optional): Page number. Defaults to 1.
+            per_page (int, optional): Items per page, up to 50. Defaults to 10.
+            status (Optional[str], optional): Filter by status: new, pending, error, active, stopped or expired.
+
+        Returns:
+            Dict[str, Any]: page, per_page, total and items. Items carry the usage counters
+            transactions_used, energy_used and total_price instead of params.
+        """
+        params: Dict[str, Any] = {
+            'page': _at_least_one(page, 1),
+            'per_page': _at_least_one(per_page, 10)
+        }
+
+        if status:
+            params['status'] = status
+
+        return self._request('POST', '/v1/subscriptions/history', params)

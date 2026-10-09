@@ -149,6 +149,61 @@ CASES: Dict[str, Any] = {
         "/v1/aml-checks/history",
         {"page": 3, "per_page": 50, "status": "completed"},
     ),
+    "get_subscriptions": (lambda c: c.get_subscriptions(), "/v1/subscriptions", {}),
+    "start_subscription": (
+        lambda c: c.start_subscription("unlimited_energy", ADDRESS),
+        "/v1/subscription/start",
+        {
+            "subscription_id": "unlimited_energy",
+            "params": {"address": ADDRESS, "duration": 0, "transactions_limit": 0},
+        },
+    ),
+    "start_subscription full": (
+        lambda c: c.start_subscription(
+            "unlimited_energy",
+            ADDRESS,
+            duration_days=30,
+            transactions_limit=10,
+            external_id="sub-1",
+            activate_address=True,
+        ),
+        "/v1/subscription/start",
+        {
+            "subscription_id": "unlimited_energy",
+            "external_id": "sub-1",
+            "params": {
+                "address": ADDRESS,
+                "duration": 30,
+                "transactions_limit": 10,
+                "activate_address": True,
+            },
+        },
+    ),
+    "check_subscription by id": (
+        lambda c: c.check_subscription(id="sub-id-1"),
+        "/v1/subscription/check",
+        {"id": "sub-id-1"},
+    ),
+    "check_subscription by external_id": (
+        lambda c: c.check_subscription(external_id="sub-1"),
+        "/v1/subscription/check",
+        {"external_id": "sub-1"},
+    ),
+    "stop_subscription": (
+        lambda c: c.stop_subscription(id="sub-id-1", external_id="sub-1"),
+        "/v1/subscription/stop",
+        {"id": "sub-id-1", "external_id": "sub-1"},
+    ),
+    "get_subscription_history": (
+        lambda c: c.get_subscription_history(),
+        "/v1/subscriptions/history",
+        {"page": 1, "per_page": 10},
+    ),
+    "get_subscription_history filtered": (
+        lambda c: c.get_subscription_history(page=2, per_page=50, status="active"),
+        "/v1/subscriptions/history",
+        {"page": 2, "per_page": 50, "status": "active"},
+    ),
 }
 
 
@@ -227,8 +282,12 @@ def test_default_base_url() -> None:
             lambda c: c.get_aml_history(page=0, per_page=0),
             {"page": 1, "per_page": 10},
         ),
+        (
+            lambda c: c.get_subscription_history(page=0, per_page=-5, status=""),
+            {"page": 1, "per_page": 10},
+        ),
     ],
-    ids=["calculate duration", "energy duration", "aml history paging"],
+    ids=["calculate duration", "energy duration", "aml history paging", "subscription history paging"],
 )
 def test_defaults_are_normalized(
     client: Client, server: ApiServer, call: Callable[[Client], Any], expected_params: Any
@@ -252,6 +311,16 @@ INVALID_CALLS: Dict[str, Callable[[Client], Any]] = {
     "aml check without network": lambda c: c.create_aml_check("address", "", ADDRESS),
     "aml check without address": lambda c: c.create_aml_check("address", "TRX", ""),
     "aml status without id": lambda c: c.check_aml_status(""),
+    "start_subscription without plan": lambda c: c.start_subscription("", ADDRESS),
+    "start_subscription without address": lambda c: c.start_subscription("unlimited_energy", ""),
+    "start_subscription negative duration": lambda c: c.start_subscription(
+        "unlimited_energy", ADDRESS, duration_days=-1
+    ),
+    "start_subscription negative limit": lambda c: c.start_subscription(
+        "unlimited_energy", ADDRESS, transactions_limit=-1
+    ),
+    "check_subscription without ids": lambda c: c.check_subscription(),
+    "stop_subscription without ids": lambda c: c.stop_subscription(id="", external_id=""),
 }
 
 
@@ -263,3 +332,95 @@ def test_invalid_arguments_are_rejected_before_sending(
         call(client)
 
     assert server.requests == []
+
+
+SUBSCRIPTION = {
+    "id": "01m4e1z3q0r7x225zc6p63m5ey",
+    "subscription_id": "unlimited_energy",
+    "created_at": "2026-10-08T15:26:32+00:00",
+    "expire_at": "2026-11-07T15:26:32+00:00",
+    "address": "TAddress",
+    "status": "active",
+    "external_id": "sub-1",
+    "params": {"address": "TAddress", "duration": 30, "transactions_limit": 0, "activate_address": False},
+}
+
+
+def test_get_subscriptions_keeps_the_api_order(client: Client, server: ApiServer) -> None:
+    server.respond(
+        200,
+        '{"code": 0, "result": {'
+        '"unlimited_energy": {"id": 8, "name": "Unlimited Energy", "activation_fee": 0, "initial_price": 8,'
+        ' "price": 2.8, "transactions_limit": 0, "duration_days": 0},'
+        '"energy_pack_100": {"id": 2, "name": "Energy Pack", "activation_fee": "2.0", "initial_price": 8,'
+        ' "price": 2.8, "transactions_limit": 10, "duration_days": 5}}}',
+    )
+
+    plans = client.get_subscriptions()
+
+    assert list(plans) == ["unlimited_energy", "energy_pack_100"]
+    assert plans["unlimited_energy"]["price"] == 2.8
+    assert plans["energy_pack_100"]["activation_fee"] == "2.0"
+    assert plans["energy_pack_100"]["transactions_limit"] == 10
+    assert plans["energy_pack_100"]["duration_days"] == 5
+
+
+@pytest.mark.parametrize("empty", [{}, []], ids=["object", "array"])
+def test_get_subscriptions_returns_an_empty_dict_when_no_plans(client: Client, server: ApiServer, empty: Any) -> None:
+    server.ok(empty)
+
+    assert client.get_subscriptions() == {}
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda c: c.start_subscription("unlimited_energy", "TAddress", duration_days=30, external_id="sub-1"),
+        lambda c: c.check_subscription(external_id="sub-1"),
+    ],
+    ids=["start", "check"],
+)
+def test_subscription_is_returned_as_is(client: Client, server: ApiServer, call: Callable[[Client], Any]) -> None:
+    server.ok(SUBSCRIPTION)
+
+    assert call(client) == SUBSCRIPTION
+
+
+def test_stop_subscription_without_address_or_expiry(client: Client, server: ApiServer) -> None:
+    stopped = {key: value for key, value in SUBSCRIPTION.items() if key not in ("address", "expire_at")}
+    stopped.update(status="stopped", stopped_at="2026-10-08T15:28:44+00:00")
+    server.ok(stopped)
+
+    result = client.stop_subscription(id=str(SUBSCRIPTION["id"]))
+
+    assert result == stopped
+    assert "address" not in result
+    assert result["params"]["address"] == "TAddress"
+
+
+def test_get_subscription_history_result(client: Client, server: ApiServer) -> None:
+    history = {
+        "page": 1,
+        "per_page": 10,
+        "total": 1,
+        "items": [
+            {
+                "id": "01m4e1z3q0r7x225zc6p63m5ey",
+                "status": "active",
+                "subscription_id": "unlimited_energy",
+                "address": "TAddress",
+                "transactions_limit": 0,
+                "transactions_used": 4,
+                "energy_used": 262000,
+                "total_price": "8.00",
+                "started_at": "2026-10-08T15:26:33+00:00",
+                "renewed_at": "2026-10-08T15:27:35+00:00",
+                "stopped_at": None,
+                "expire_at": "2026-11-07T15:26:32+00:00",
+                "created_at": "2026-10-08T15:26:32+00:00",
+            }
+        ],
+    }
+    server.ok(history)
+
+    assert client.get_subscription_history() == history

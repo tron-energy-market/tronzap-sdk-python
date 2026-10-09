@@ -114,6 +114,7 @@ print(recharge_info)
 - Create bandwidth purchase transactions
 - Create resource bundle transactions (energy + bandwidth in one purchase)
 - Create and track AML checks
+- Start, check, stop and list subscriptions
 - Check transaction status
 - Get direct recharge information
 
@@ -121,6 +122,37 @@ print(recharge_info)
 
 - Python 3.9 or higher
 - requests >= 2.25.0
+
+## Subscriptions
+
+A subscription keeps an address supplied with energy for every transaction until it is stopped or runs out of days
+or transactions. `get_subscriptions()` returns the plans keyed by their subscription ID; pass that key, such as
+`"unlimited_energy"`, to `start_subscription`, not the plan's numeric `id`. Starting a subscription charges the
+plan's initial price.
+
+```python
+plans = client.get_subscriptions()
+for subscription_id, plan in plans.items():
+    print(subscription_id, plan["initial_price"], plan["price"])
+
+subscription = client.start_subscription(
+    subscription_id="unlimited_energy",
+    address="TRON_WALLET_ADDRESS",
+    duration_days=30,  # 0 for no time limit
+    transactions_limit=0,  # 0 for no limit
+    external_id="subscription-42"
+)
+
+subscription = client.check_subscription(external_id="subscription-42")
+
+stopped = client.stop_subscription(id=subscription["id"])
+
+history = client.get_subscription_history(page=1, per_page=10, status="active")
+```
+
+`duration_days` and `transactions_limit` default to 0, which means no limit. Start, check and stop return the
+subscription with its `params`; the history items carry the usage counters `transactions_used`, `energy_used` and
+`total_price` instead. A subscription with a transactions limit cannot be stopped (`CANNOT_STOP_SUBSCRIPTION`).
 
 ## Error Handling
 
@@ -206,11 +238,11 @@ except TronZapException as e:
 | 2    | `INVALID_SERVICE_OR_PARAMS`    | Invalid service or parameters |
 | 5    | `WALLET_NOT_FOUND`             | Internal wallet not found. Contact support. |
 | 6    | `INSUFFICIENT_FUNDS`           | Insufficient funds |
-| 10   | `INVALID_TRON_ADDRESS`         | Invalid TRON address |
+| 10   | `INVALID_TRON_ADDRESS`         | Invalid TRON address, or the address already has an active subscription |
 | 11   | `INVALID_ENERGY_AMOUNT`        | Invalid energy amount |
 | 12   | `INVALID_DURATION`             | Invalid duration |
 | 20   | `TRANSACTION_NOT_FOUND`        | Transaction/subscription not found |
-| 21   | `CANNOT_STOP_SUBSCRIPTION`     | Cannot stop subscription |
+| 21   | `CANNOT_STOP_SUBSCRIPTION`     | Cannot stop subscription, e.g. it has a transactions limit |
 | 24   | `ADDRESS_NOT_ACTIVATED`        | Address not activated |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`    | Address already activated |
 | 30   | `AML_CHECK_NOT_FOUND`          | AML check not found |

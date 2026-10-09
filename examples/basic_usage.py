@@ -9,12 +9,16 @@ Walks through the TronZap API operations. By default it only reads and spends no
     export TRONZAP_TO_ADDRESS=TRON_ADDRESS           # optional, with FROM_ADDRESS
     export TRONZAP_TRANSACTION_ID=id                 # optional
     export TRONZAP_AML_CHECK_ID=id                   # optional
+    export TRONZAP_SUBSCRIPTION_ID=id                # optional
     pip install -e .
     python examples/basic_usage.py
 
 Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions and AML checks.
 Those DEBIT THE ACCOUNT BALANCE. It is meant for verifying an integration against a development environment, and
 it also needs TRONZAP_ADDRESS.
+
+Setting TRONZAP_SUBSCRIPTION_PLAN as well, e.g. to unlimited_energy, starts a one-day subscription to that plan for
+TRONZAP_ADDRESS and stops it straight away. Starting one charges the plan's initial price.
 """
 
 import os
@@ -37,6 +41,14 @@ def print_transaction(transaction: Dict[str, Any]) -> None:
     print(
         f"  {transaction.get('id')} {transaction.get('service')} {transaction.get('status')}, "
         f"charged {transaction.get('amount')}, created {transaction.get('created_at')}"
+    )
+
+
+def print_subscription(subscription: Dict[str, Any]) -> None:
+    print(
+        f"  {subscription.get('id')} {subscription.get('subscription_id')} {subscription.get('status')}, "
+        f"address {subscription.get('address')}, created {subscription.get('created_at')}, "
+        f"expires {subscription.get('expire_at')}"
     )
 
 
@@ -102,11 +114,33 @@ def main() -> int:
         items = history.get("items") or []
         print(f"  page {history.get('page')}, {len(items)} of {history.get('total')} check(s)")
 
+    def get_subscriptions() -> None:
+        plans = client.get_subscriptions()
+        for subscription_id, plan in plans.items():
+            print(
+                f"  {subscription_id} ({plan.get('name')}): activation {plan.get('activation_fee')}, "
+                f"initial {plan.get('initial_price')}, {plan.get('price')} per transaction, "
+                f"limit {plan.get('transactions_limit')} transactions, {plan.get('duration_days')} days"
+            )
+
+    def get_subscription_history() -> None:
+        history = client.get_subscription_history(per_page=3)
+        items = history.get("items") or []
+        print(f"  page {history.get('page')}, {len(items)} of {history.get('total')} subscription(s)")
+        for item in items:
+            print(
+                f"  {item.get('id')} {item.get('subscription_id')} {item.get('status')}, "
+                f"used {item.get('transactions_used')} transactions and {item.get('energy_used')} energy, "
+                f"charged {item.get('total_price')}, expires {item.get('expire_at')}"
+            )
+
     step("get_balance", get_balance)
     step("get_services", get_services)
     step("get_direct_recharge_info", get_direct_recharge_info)
     step("get_aml_services", get_aml_services)
     step("get_aml_history", get_aml_history)
+    step("get_subscriptions", get_subscriptions)
+    step("get_subscription_history", get_subscription_history)
 
     address = env("TRONZAP_ADDRESS")
 
@@ -148,6 +182,11 @@ def main() -> int:
         lambda value: print_transaction(client.check_transaction(id=value)),
     )
     optional_step("check_aml_status", env("TRONZAP_AML_CHECK_ID"), check_aml_status)
+    optional_step(
+        "check_subscription",
+        env("TRONZAP_SUBSCRIPTION_ID"),
+        lambda value: print_subscription(client.check_subscription(id=value)),
+    )
 
     if env("TRONZAP_ALLOW_PURCHASES") != "1":
         print("\nSkipping purchases: set TRONZAP_ALLOW_PURCHASES=1 to create transactions (debits the balance)")
@@ -194,6 +233,21 @@ def main() -> int:
         step("create_bandwidth_transaction", buy_bandwidth)
         step("create_resource_bundle_transaction", buy_bundle)
         step("create_aml_check", create_aml_check)
+
+        plan = env("TRONZAP_SUBSCRIPTION_PLAN")
+
+        def try_subscription(value: str) -> None:
+            subscription = client.start_subscription(
+                value, buyer, duration_days=1, external_id=f"{run_id}-subscription"
+            )
+            print_subscription(subscription)
+            try:
+                print_subscription(client.check_subscription(id=subscription["id"]))
+            finally:
+                stopped = client.stop_subscription(id=subscription["id"])
+                print(f"  stopped: {stopped.get('status')} at {stopped.get('stopped_at')}")
+
+        optional_step("start_subscription, check_subscription, stop_subscription", plan, try_subscription)
 
     if failed:
         print(f"\nFailed: {', '.join(failed)}", file=sys.stderr)

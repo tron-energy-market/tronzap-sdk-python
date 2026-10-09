@@ -112,6 +112,7 @@ print(recharge_info)
 - Crear transacciones de compra de ancho de banda
 - Crear transacciones de paquete de recursos (energía + ancho de banda)
 - Crear y seguir chequeos AML
+- Iniciar, verificar, detener y listar suscripciones
 - Verificar estado de transacciones
 - Obtener información de recarga directa
 
@@ -119,6 +120,38 @@ print(recharge_info)
 
 - Python 3.9 o superior
 - requests >= 2.25.0
+
+## Suscripciones
+
+Una suscripción mantiene una dirección abastecida de energía para cada transacción hasta que se detiene o se agotan
+sus días o transacciones. `get_subscriptions()` devuelve los planes indexados por su ID de suscripción; pase esa
+clave, como `"unlimited_energy"`, a `start_subscription`, no el `id` numérico del plan. Iniciar una suscripción cobra
+el precio inicial del plan.
+
+```python
+plans = client.get_subscriptions()
+for subscription_id, plan in plans.items():
+    print(subscription_id, plan["initial_price"], plan["price"])
+
+subscription = client.start_subscription(
+    subscription_id="unlimited_energy",
+    address="TRON_WALLET_ADDRESS",
+    duration_days=30,  # 0 para sin límite de tiempo
+    transactions_limit=0,  # 0 para sin límite
+    external_id="subscription-42"
+)
+
+subscription = client.check_subscription(external_id="subscription-42")
+
+stopped = client.stop_subscription(id=subscription["id"])
+
+history = client.get_subscription_history(page=1, per_page=10, status="active")
+```
+
+`duration_days` y `transactions_limit` valen 0 por defecto, lo que significa sin límite. Iniciar, verificar y detener
+devuelven la suscripción con sus `params`; los elementos del historial traen en su lugar los contadores de uso
+`transactions_used`, `energy_used` y `total_price`. Una suscripción con límite de transacciones no se puede detener
+(`CANNOT_STOP_SUBSCRIPTION`).
 
 ## Manejo de Errores
 
@@ -204,11 +237,11 @@ except TronZapException as e:
 | 2      | `INVALID_SERVICE_OR_PARAMS`    | Servicio o parámetros inválidos |
 | 5      | `WALLET_NOT_FOUND`             | Cartera interna no encontrada. Contacte con soporte. |
 | 6      | `INSUFFICIENT_FUNDS`           | Fondos insuficientes |
-| 10     | `INVALID_TRON_ADDRESS`         | Dirección TRON inválida |
+| 10     | `INVALID_TRON_ADDRESS`         | Dirección TRON inválida, o la dirección ya tiene una suscripción activa |
 | 11     | `INVALID_ENERGY_AMOUNT`        | Cantidad de energía inválida |
 | 12     | `INVALID_DURATION`             | Duración inválida |
 | 20     | `TRANSACTION_NOT_FOUND`        | Transacción/suscripción no encontrada |
-| 21     | `CANNOT_STOP_SUBSCRIPTION`     | No se puede detener la suscripción |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`     | No se puede detener la suscripción, p. ej. tiene un límite de transacciones |
 | 24     | `ADDRESS_NOT_ACTIVATED`        | Dirección no activada |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`    | La dirección ya está activada |
 | 30     | `AML_CHECK_NOT_FOUND`          | Chequeo AML no encontrado |

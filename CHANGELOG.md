@@ -6,8 +6,23 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Subscriptions: `get_subscriptions()`, `start_subscription()`, `check_subscription()`, `stop_subscription()` and
+  `get_subscription_history()` for `/v1/subscriptions`, `/v1/subscription/start`, `/v1/subscription/check`,
+  `/v1/subscription/stop` and `/v1/subscriptions/history`. Like the other methods they return the API's result as
+  is. `start_subscription` takes the plan key from `get_subscriptions()`, such as `unlimited_energy`, and
+  `duration_days` and `transactions_limit` of 0 mean no limit. An empty plan or address, a negative `duration_days`
+  or `transactions_limit`, and a check or stop without `id` and `external_id` raise `InvalidRequestException`
+  before any request is sent.
+- `examples/basic_usage.py` lists the subscription plans and history, checks `TRONZAP_SUBSCRIPTION_ID`, and with
+  `TRONZAP_ALLOW_PURCHASES=1` and `TRONZAP_SUBSCRIPTION_PLAN` starts a one-day subscription and stops it.
+
 ### Changed
 
+- The descriptions of error codes 10 (`INVALID_TRON_ADDRESS`) and 21 (`CANNOT_STOP_SUBSCRIPTION`) say that code 10
+  also means the address already has an active subscription, and that a subscription with a transactions limit
+  cannot be stopped.
 - `examples/basic_usage.py` reads the API's `amount`, `min_amount` and `max_amount` fields instead of the deprecated
   `energy`, `min_energy` and `max_energy`.
 

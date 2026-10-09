@@ -112,6 +112,7 @@ print(recharge_info)
 - Создание транзакций покупки bandwidth
 - Создание транзакций пакета ресурсов (energy + bandwidth)
 - Создание и отслеживание AML-проверок
+- Запуск, проверка, остановка и история подписок
 - Проверка статуса транзакций
 - Получение информации о прямом пополнении
 
@@ -119,6 +120,38 @@ print(recharge_info)
 
 - Python 3.9 или выше
 - requests >= 2.25.0
+
+## Подписки
+
+Подписка обеспечивает адрес энергией для каждой транзакции, пока её не остановят или не закончатся её дни или
+транзакции. `get_subscriptions()` возвращает планы с ключом — ID подписки; передайте этот ключ, например
+`"unlimited_energy"`, в `start_subscription`, а не числовой `id` плана. При запуске подписки списывается начальная
+цена плана.
+
+```python
+plans = client.get_subscriptions()
+for subscription_id, plan in plans.items():
+    print(subscription_id, plan["initial_price"], plan["price"])
+
+subscription = client.start_subscription(
+    subscription_id="unlimited_energy",
+    address="TRON_WALLET_ADDRESS",
+    duration_days=30,  # 0 — без ограничения по времени
+    transactions_limit=0,  # 0 — без ограничения
+    external_id="subscription-42"
+)
+
+subscription = client.check_subscription(external_id="subscription-42")
+
+stopped = client.stop_subscription(id=subscription["id"])
+
+history = client.get_subscription_history(page=1, per_page=10, status="active")
+```
+
+`duration_days` и `transactions_limit` по умолчанию равны 0, что означает отсутствие ограничения. Запуск, проверка и
+остановка возвращают подписку с её `params`, а элементы истории вместо них — счётчики использования
+`transactions_used`, `energy_used` и `total_price`. Подписку с лимитом транзакций остановить нельзя
+(`CANNOT_STOP_SUBSCRIPTION`).
 
 ## Обработка ошибок
 
@@ -204,11 +237,11 @@ except TronZapException as e:
 | 2    | `INVALID_SERVICE_OR_PARAMS`  | Неверный сервис или параметры |
 | 5    | `WALLET_NOT_FOUND`           | Внутренний кошелёк не найден. Обратитесь в поддержку. |
 | 6    | `INSUFFICIENT_FUNDS`         | Недостаточно средств |
-| 10   | `INVALID_TRON_ADDRESS`       | Неверный TRON-адрес |
+| 10   | `INVALID_TRON_ADDRESS`       | Неверный TRON-адрес, или у адреса уже есть активная подписка |
 | 11   | `INVALID_ENERGY_AMOUNT`      | Неверное количество энергии |
 | 12   | `INVALID_DURATION`           | Неверная длительность |
 | 20   | `TRANSACTION_NOT_FOUND`      | Транзакция/подписка не найдена |
-| 21   | `CANNOT_STOP_SUBSCRIPTION`   | Невозможно остановить подписку |
+| 21   | `CANNOT_STOP_SUBSCRIPTION`   | Невозможно остановить подписку, например, у неё есть лимит транзакций |
 | 24   | `ADDRESS_NOT_ACTIVATED`      | Адрес не активирован |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`  | Адрес уже активирован |
 | 30   | `AML_CHECK_NOT_FOUND`        | AML-проверка не найдена |

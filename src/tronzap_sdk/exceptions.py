@@ -22,7 +22,8 @@ class ErrorCode(IntEnum):
     # Insufficient funds - Add funds to your account or reduce the amount of energy you're requesting.
     INSUFFICIENT_FUNDS = 6
 
-    # Invalid TRON address - Check the TRON address format. It should be a valid 34-character TRON address.
+    # Invalid TRON address, or the address already has an active subscription - Check the TRON address format.
+    # It should be a valid 34-character TRON address.
     INVALID_TRON_ADDRESS = 10
 
     # Invalid energy amount - Ensure the requested energy amount is valid.
@@ -34,7 +35,7 @@ class ErrorCode(IntEnum):
     # Transaction not found - Verify the transaction ID or external ID is correct.
     TRANSACTION_NOT_FOUND = 20
 
-    # Cannot stop subscription - Review subscription limits or complete pending transactions.
+    # Cannot stop subscription, e.g. it has a transactions limit.
     CANNOT_STOP_SUBSCRIPTION = 21
 
     # Address not activated - Activate the address first by making an address activation transaction.

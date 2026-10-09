@@ -112,6 +112,7 @@ print(recharge_info)
 - Criar transações de compra de bandwidth
 - Criar transações de pacote de recursos (energia + bandwidth)
 - Criar e acompanhar checagens AML
+- Iniciar, verificar, parar e listar assinaturas
 - Verificar status de transações
 - Obter informações de recarga direta
 
@@ -119,6 +120,38 @@ print(recharge_info)
 
 - Python 3.9 ou superior
 - requests >= 2.25.0
+
+## Assinaturas
+
+Uma assinatura mantém um endereço abastecido de energia para cada transação até ser parada ou esgotar seus dias ou
+transações. `get_subscriptions()` retorna os planos indexados pelo ID de assinatura; passe essa chave, como
+`"unlimited_energy"`, para `start_subscription`, não o `id` numérico do plano. Iniciar uma assinatura cobra o preço
+inicial do plano.
+
+```python
+plans = client.get_subscriptions()
+for subscription_id, plan in plans.items():
+    print(subscription_id, plan["initial_price"], plan["price"])
+
+subscription = client.start_subscription(
+    subscription_id="unlimited_energy",
+    address="TRON_WALLET_ADDRESS",
+    duration_days=30,  # 0 para sem limite de tempo
+    transactions_limit=0,  # 0 para sem limite
+    external_id="subscription-42"
+)
+
+subscription = client.check_subscription(external_id="subscription-42")
+
+stopped = client.stop_subscription(id=subscription["id"])
+
+history = client.get_subscription_history(page=1, per_page=10, status="active")
+```
+
+`duration_days` e `transactions_limit` valem 0 por padrão, o que significa sem limite. Iniciar, verificar e parar
+retornam a assinatura com seus `params`; os itens do histórico trazem, em vez disso, os contadores de uso
+`transactions_used`, `energy_used` e `total_price`. Uma assinatura com limite de transações não pode ser parada
+(`CANNOT_STOP_SUBSCRIPTION`).
 
 ## Tratamento de Erros
 
@@ -204,11 +237,11 @@ except TronZapException as e:
 | 2      | `INVALID_SERVICE_OR_PARAMS`    | Serviço ou parâmetros inválidos |
 | 5      | `WALLET_NOT_FOUND`             | Carteira interna não encontrada. Entre em contato com o suporte |
 | 6      | `INSUFFICIENT_FUNDS`           | Fundos insuficientes |
-| 10     | `INVALID_TRON_ADDRESS`         | Endereço TRON inválido |
+| 10     | `INVALID_TRON_ADDRESS`         | Endereço TRON inválido, ou o endereço já tem uma assinatura ativa |
 | 11     | `INVALID_ENERGY_AMOUNT`        | Quantidade de energia inválida |
 | 12     | `INVALID_DURATION`             | Duração inválida |
 | 20     | `TRANSACTION_NOT_FOUND`        | Transação/assinatura não encontrada |
-| 21     | `CANNOT_STOP_SUBSCRIPTION`     | Não é possível parar a assinatura |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`     | Não é possível parar a assinatura, p. ex. ela tem um limite de transações |
 | 24     | `ADDRESS_NOT_ACTIVATED`        | Endereço não ativado |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`    | Endereço já ativado |
 | 30     | `AML_CHECK_NOT_FOUND`          | Checagem AML não encontrada |
