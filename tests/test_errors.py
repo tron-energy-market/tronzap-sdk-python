@@ -1,6 +1,8 @@
 import socket
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from pathlib import Path
-from typing import Type
+from typing import Any, Type
 
 import pytest
 import trustme
@@ -52,6 +54,120 @@ def test_api_error_carries_request_id_and_status(client: Client, server: ApiServ
 
     assert exc_info.value.request_id == "req-42"
     assert exc_info.value.status_code == 400
+
+
+def test_api_error_carries_the_result(client: Client, server: ApiServer) -> None:
+    server.respond(200, {"code": 92, "error": "Price changed", "result": {"id": "calc-2"}})
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.result == {"id": "calc-2"}
+    assert exc_info.value.retry_after is None
+
+
+def test_api_error_without_result(client: Client, server: ApiServer) -> None:
+    server.respond(200, INSUFFICIENT_FUNDS)
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.result is None
+
+
+def test_rate_limited_api_error_carries_retry_after(client: Client, server: ApiServer) -> None:
+    server.respond(
+        429,
+        {"code": 429, "error": "Too Many Requests"},
+        {"Retry-After": "17", "X-RateLimit-Remaining": "0"},
+    )
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert type(exc_info.value) is ApiException
+    assert exc_info.value.code == ErrorCode.RATE_LIMITED
+    assert exc_info.value.status_code == 429
+    assert exc_info.value.retry_after == 17
+
+
+def test_retry_after_as_an_http_date(client: Client, server: ApiServer) -> None:
+    when = datetime.now(timezone.utc) + timedelta(seconds=120)
+    server.respond(429, {"code": 429, "error": "Too Many Requests"}, {"Retry-After": format_datetime(when, usegmt=True)})
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after is not None
+    assert 110 <= exc_info.value.retry_after <= 121
+
+
+@pytest.mark.parametrize(
+    "header", ["Wed, 21 Oct 2015 07:28:00 GMT", "Wed, 21 Oct 2015 07:28:00 -0000"]
+)
+def test_retry_after_in_the_past_is_zero(client: Client, server: ApiServer, header: str) -> None:
+    server.respond(429, {"code": 429, "error": "Too Many Requests"}, {"Retry-After": header})
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after == 0
+
+
+@pytest.mark.parametrize(
+    "body, expected",
+    [
+        ({"code": 429, "error": "Too Many Requests", "retry_after": 30}, 30),
+        ({"code": 429, "error": "Too Many Requests", "retry_after": -1}, None),
+        ({"code": 429, "error": "Too Many Requests", "retry_after": "30"}, None),
+        ({"code": 429, "error": "Too Many Requests", "retry_after": True}, None),
+    ],
+    ids=["int", "negative", "string", "bool"],
+)
+def test_retry_after_from_the_body(client: Client, server: ApiServer, body: Any, expected: Any) -> None:
+    server.respond(429, body)
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after == expected
+
+
+def test_retry_after_header_wins_over_the_body(client: Client, server: ApiServer) -> None:
+    server.respond(429, {"code": 429, "error": "Too Many Requests", "retry_after": 30}, {"Retry-After": "5"})
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after == 5
+
+
+def test_unparsable_retry_after_header_falls_back_to_the_body(client: Client, server: ApiServer) -> None:
+    server.respond(429, {"code": 429, "error": "Too Many Requests", "retry_after": 30}, {"Retry-After": "soon"})
+
+    with pytest.raises(ApiException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after == 30
+
+
+def test_rate_limit_without_json_carries_retry_after(client: Client, server: ApiServer) -> None:
+    server.respond(429, "<html>slow down</html>", {"Retry-After": "60"})
+
+    with pytest.raises(RateLimitException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after == 60
+    assert exc_info.value.response_body == "<html>slow down</html>"
+
+
+def test_rate_limit_without_retry_after(client: Client, server: ApiServer) -> None:
+    server.respond(429, "<html>slow down</html>")
+
+    with pytest.raises(RateLimitException) as exc_info:
+        client.get_balance()
+
+    assert exc_info.value.retry_after is None
 
 
 def test_api_error_without_message_or_key(client: Client, server: ApiServer) -> None:
@@ -240,6 +356,14 @@ def test_error_codes() -> None:
         "AML_CHECK_NOT_FOUND": 30,
         "SERVICE_NOT_AVAILABLE": 35,
         "INVALID_BANDWIDTH_AMOUNT": 50,
+        "BULK_NOT_FOUND": 90,
+        "BULK_EXPIRED": 91,
+        "BULK_PRICE_CHANGED": 92,
+        "BULK_TOO_MANY_ITEMS": 93,
+        "BULK_NO_VALID_ITEMS": 94,
+        "BULK_RESOURCE_NOT_SUPPORTED": 95,
+        "PAYLOAD_TOO_LARGE": 96,
+        "RATE_LIMITED": 429,
     }
 
 

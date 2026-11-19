@@ -37,12 +37,14 @@ class ApiServer:
     status: int = 200
     body: str = '{"code": 0, "result": {}}'
     delay: float = 0.0
+    headers: Dict[str, str] = field(default_factory=dict)
     responder: Optional[Responder] = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def respond(self, status: int, body: Any) -> None:
+    def respond(self, status: int, body: Any, headers: Optional[Dict[str, str]] = None) -> None:
         self.status = status
         self.body = body if isinstance(body, str) else json.dumps(body)
+        self.headers = headers or {}
 
     def ok(self, result: Any) -> None:
         self.respond(200, {"code": 0, "result": result})
@@ -72,9 +74,11 @@ def _start(server_state: ApiServer, ssl_context: Optional[ssl.SSLContext]) -> Th
             else:
                 status, body = server_state.status, server_state.body
             payload = body.encode()
+            headers = {"Content-Type": "application/json", **server_state.headers}
             try:
                 self.send_response(status)
-                self.send_header("Content-Type", "application/json")
+                for name, value in headers.items():
+                    self.send_header(name, value)
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
                 self.wfile.write(payload)

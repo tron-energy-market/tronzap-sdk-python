@@ -5,8 +5,12 @@ This module provides a Python client for interacting with the TronZap API to pur
 """
 
 import hashlib
+import hmac
 import json
-from typing import Any, Dict, List, Optional
+import math
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
 
 import requests
 
@@ -46,6 +50,72 @@ def _id_params(id: Optional[str], external_id: Optional[str]) -> Dict[str, Any]:
     if external_id:
         params['external_id'] = external_id
     return params
+
+
+def _retry_after(response: requests.Response, data: Any) -> Optional[int]:
+    header = response.headers.get('Retry-After', '').strip()
+    if header.isascii() and header.isdigit():
+        return int(header)
+    if header:
+        try:
+            when = parsedate_to_datetime(header)
+        except (TypeError, ValueError):
+            when = None
+        if when is not None:
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            return max(0, math.ceil((when - datetime.now(timezone.utc)).total_seconds()))
+
+    body = data.get('retry_after') if isinstance(data, dict) else None
+    if isinstance(body, int) and not isinstance(body, bool) and body >= 0:
+        return body
+    return None
+
+
+def _decode(response: requests.Response) -> Any:
+    # 1. Try to parse JSON
+    response_data: Any = _NOT_JSON
+    try:
+        response_data = response.json()
+    except ValueError:
+        pass
+
+    # 2. API-level errors (valid JSON + code !== 0, regardless of HTTP status)
+    if response_data is not _NOT_JSON:
+        if not isinstance(response_data, dict):
+            raise ApiException('Unknown API error', code=1, status_code=response.status_code)
+        if response_data.get('code') != 0:
+            code = response_data.get('code')
+            raise ApiException(
+                response_data.get('error') or 'Unknown API error',
+                code=1 if code is None else code,
+                error_key=response_data.get('key'),
+                request_id=response_data.get('request_id'),
+                status_code=response.status_code,
+                result=response_data.get('result'),
+                retry_after=_retry_after(response, response_data),
+            )
+
+    # 3. HTTP-level errors (non-2xx: invalid JSON or valid JSON with code=0)
+    if not response.ok:
+        body = response.text
+        if response.status_code == 429:
+            raise RateLimitException(response_body=body, retry_after=_retry_after(response, None))
+        if response.status_code in (401, 403):
+            raise UnauthorizedException(response.status_code, 'Unauthorized', body)
+        if response.status_code >= 500:
+            raise ServerException(response.status_code, 'Server error', body)
+        raise HttpException(response.status_code, f'HTTP error {response.status_code}', body)
+
+    # 4. HTTP 2xx but invalid JSON
+    if response_data is _NOT_JSON:
+        raise ServerException(response.status_code, 'Invalid JSON response', response.text)
+
+    # 5. Missing result key in a successful response
+    if response_data.get('result') is None:
+        raise ServerException(response.status_code, 'Missing result in response', response.text)
+
+    return response_data['result']
 
 
 class Client:
@@ -96,6 +166,9 @@ class Client:
         Raises:
             TronZapException: If the API request fails
         """
+        return _decode(self._send(endpoint, params))
+
+    def _send(self, endpoint: str, params: Dict[str, Any]) -> requests.Response:
         request_body = json.dumps(params)
         signature = hashlib.sha256(
             (request_body + self.api_secret).encode()
@@ -107,11 +180,10 @@ class Client:
             'Content-Type': 'application/json',
         }
 
-        # 1. Network-level errors
         # SSLError must come before ConnectionError (it's a subclass of it).
         # Timeout must come before ConnectionError (ConnectTimeout is a subclass of both).
         try:
-            response = requests.post(
+            return requests.post(
                 url=f"{self.base_url}{endpoint}",
                 data=request_body,
                 headers=headers,
@@ -126,48 +198,6 @@ class Client:
             raise ConnectionException(str(e), original_error=e) from e
         except requests.exceptions.RequestException as e:
             raise NetworkException(str(e), original_error=e) from e
-
-        # 2. Try to parse JSON
-        response_data: Any = _NOT_JSON
-        try:
-            response_data = response.json()
-        except ValueError:
-            pass
-
-        # 3. API-level errors (valid JSON + code !== 0, regardless of HTTP status)
-        if response_data is not _NOT_JSON:
-            if not isinstance(response_data, dict):
-                raise ApiException('Unknown API error', code=1, status_code=response.status_code)
-            if response_data.get('code') != 0:
-                code = response_data.get('code')
-                raise ApiException(
-                    response_data.get('error') or 'Unknown API error',
-                    code=1 if code is None else code,
-                    error_key=response_data.get('key'),
-                    request_id=response_data.get('request_id'),
-                    status_code=response.status_code,
-                )
-
-        # 4. HTTP-level errors (non-2xx: invalid JSON or valid JSON with code=0)
-        if not response.ok:
-            body = response.text
-            if response.status_code == 429:
-                raise RateLimitException(response_body=body)
-            if response.status_code in (401, 403):
-                raise UnauthorizedException(response.status_code, 'Unauthorized', body)
-            if response.status_code >= 500:
-                raise ServerException(response.status_code, 'Server error', body)
-            raise HttpException(response.status_code, f'HTTP error {response.status_code}', body)
-
-        # 5. HTTP 2xx but invalid JSON
-        if response_data is _NOT_JSON:
-            raise ServerException(response.status_code, 'Invalid JSON response', response.text)
-
-        # 6. Missing result key in a successful response
-        if response_data.get('result') is None:
-            raise ServerException(response.status_code, 'Missing result in response', response.text)
-
-        return response_data['result']
 
     def get_services(self) -> Dict[str, Any]:
         """
@@ -644,3 +674,165 @@ class Client:
             params['status'] = status
 
         return self._request('POST', '/v1/subscriptions/history', params)
+
+    def bulk_calculate(
+        self,
+        items: Iterable[Mapping[str, Any]],
+        duration: int = 1
+    ) -> Dict[str, Any]:
+        """
+        Validate and price the rows of a bulk energy order.
+
+        Creates a calculation valid for 10 minutes; nothing is charged. Invalid rows do not fail
+        the request: they are returned in "rejected" with their row number, starting at 1. When
+        no row is valid, the API answers ErrorCode.BULK_NO_VALID_ITEMS and the rejected rows are
+        in ApiException.result.
+
+        Args:
+            items (Iterable[Mapping[str, Any]]): Rows with address and amount, at most 10 000
+            duration (int, optional): Rental period in hours, one of the periods available to you
+                (see get_services()). Defaults to 1.
+
+        Returns:
+            Dict[str, Any]: Calculation: id, total_amount, accepted, rejected_count, rejected, expires_at
+        """
+        rows = [dict(item) for item in items]
+        if not rows:
+            raise InvalidRequestException('items is required')
+        return self._request('POST', '/v1/bulk/calculate', {
+            'resource': 'energy',
+            'duration': _at_least_one(duration, 1),
+            'items': rows
+        })
+
+    def bulk_create(
+        self,
+        id: str,
+        external_id: Optional[str] = None,
+        force: bool = False,
+        max_price_increase: Optional[int] = None,
+        webhook_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Start a bulk order from a calculation.
+
+        Nothing is charged here: each address is charged when it is processed. If the price of
+        any row changed since the calculation, the order is not started: the API answers
+        ErrorCode.BULK_PRICE_CHANGED and the new calculation is in ApiException.result; call
+        bulk_create() with its id to start at the new total. Repeating a call with the same id
+        or external_id returns the order already started.
+
+        Args:
+            id (str): Calculation ID from bulk_calculate()
+            external_id (Optional[str], optional): Your order ID, unique per account
+            force (bool, optional): Buy even if the price rises while the order runs,
+                within max_price_increase
+            max_price_increase (Optional[int], optional): Allowed price increase in %, 0-100,
+                used only with force. API default is 20
+            webhook_url (Optional[str], optional): Public https URL called once when the order
+                becomes final
+
+        Returns:
+            Dict[str, Any]: The order, same fields as bulk_check()
+        """
+        _require(id, 'id')
+        params: Dict[str, Any] = {'id': id}
+
+        if force:
+            params['force'] = True
+
+        if max_price_increase is not None:
+            params['max_price_increase'] = max_price_increase
+
+        if webhook_url:
+            params['webhook_url'] = webhook_url
+
+        if external_id:
+            params['external_id'] = external_id
+
+        return self._request('POST', '/v1/bulk/create', params)
+
+    def bulk_check(
+        self,
+        id: Optional[str] = None,
+        external_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get the status and progress counters of a bulk order.
+
+        Args:
+            id (Optional[str], optional): Order ID
+            external_id (Optional[str], optional): Your order ID from bulk_create().
+            Note: Either id or external_id must be provided.
+
+        Returns:
+            Dict[str, Any]: Order: status, total, processed, delivered, failed, in_review,
+            skipped, charged_amount, ...
+        """
+        return self._request('POST', '/v1/bulk/check', _id_params(id, external_id))
+
+    def bulk_history(self, page: int = 1, per_page: int = 10) -> Dict[str, Any]:
+        """
+        List bulk orders, newest first.
+
+        Args:
+            page (int, optional): Page number. Defaults to 1.
+            per_page (int, optional): Items per page, up to 50. Defaults to 10.
+
+        Returns:
+            Dict[str, Any]: page, per_page, total and items with the same fields as bulk_check()
+        """
+        return self._request('POST', '/v1/bulk/history', {
+            'page': _at_least_one(page, 1),
+            'per_page': _at_least_one(per_page, 10)
+        })
+
+    def bulk_report(
+        self,
+        id: Optional[str] = None,
+        external_id: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> str:
+        """
+        Download the per-address report of a bulk order as CSV.
+
+        Columns: row, address, amount, status, reason, charged, transaction_id. Rows rejected
+        by the calculation are not included.
+
+        Args:
+            id (Optional[str], optional): Order ID
+            external_id (Optional[str], optional): Your order ID from bulk_create().
+            Note: Either id or external_id must be provided.
+            status (Optional[str], optional): Only rows with this result: delivered, failed,
+                in_review, skipped or pending
+
+        Returns:
+            str: CSV with a header line
+        """
+        params = _id_params(id, external_id)
+        if status:
+            params['status'] = status
+
+        response = self._send('/v1/bulk/report', params)
+        content_type = response.headers.get('Content-Type', '').lower()
+        if response.ok and content_type.startswith('text/csv'):
+            # requests assumes ISO-8859-1 for text/* without a charset; the report is UTF-8.
+            return response.content.decode('utf-8', errors='replace')
+
+        _decode(response)
+        raise ServerException(response.status_code, 'Expected a CSV report', response.text)
+
+    def verify_webhook_signature(self, body: Union[str, bytes], signature: str) -> bool:
+        """
+        Check the X-Signature header of a bulk order webhook.
+
+        Args:
+            body (Union[str, bytes]): Raw request body, exactly as received
+            signature (str): Value of the X-Signature header
+
+        Returns:
+            bool: True when the webhook was signed with your API secret
+        """
+        raw = body.encode() if isinstance(body, str) else body
+        expected = hashlib.sha256(raw + self.api_secret.encode()).hexdigest()
+        return hmac.compare_digest(expected.encode(), signature.strip().lower().encode())

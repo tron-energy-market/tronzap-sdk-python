@@ -10,10 +10,12 @@ Walks through the TronZap API operations. By default it only reads and spends no
     export TRONZAP_TRANSACTION_ID=id                 # optional
     export TRONZAP_AML_CHECK_ID=id                   # optional
     export TRONZAP_SUBSCRIPTION_ID=id                # optional
+    export TRONZAP_BULK_ID=id                        # optional
     pip install -e .
     python examples/basic_usage.py
 
-Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions and AML checks.
+Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions, AML checks and a
+one-address bulk order.
 Those DEBIT THE ACCOUNT BALANCE. It is meant for verifying an integration against a development environment, and
 it also needs TRONZAP_ADDRESS.
 
@@ -50,6 +52,18 @@ def print_subscription(subscription: Dict[str, Any]) -> None:
         f"address {subscription.get('address')}, created {subscription.get('created_at')}, "
         f"expires {subscription.get('expire_at')}"
     )
+
+
+def print_bulk_order(order: Dict[str, Any]) -> None:
+    print(
+        f"  {order.get('id')} {order.get('status')}: {order.get('processed')} of {order.get('total')} processed, "
+        f"{order.get('delivered')} delivered, {order.get('skipped')} skipped, "
+        f"charged {order.get('charged_amount')} of {order.get('total_amount')}"
+    )
+
+
+def print_report(csv: str) -> None:
+    print("  " + csv.strip().replace("\n", "\n  "))
 
 
 def main() -> int:
@@ -134,6 +148,13 @@ def main() -> int:
                 f"charged {item.get('total_price')}, expires {item.get('expire_at')}"
             )
 
+    def bulk_history() -> None:
+        history = client.bulk_history(per_page=3)
+        items = history.get("items") or []
+        print(f"  page {history.get('page')}, {len(items)} of {history.get('total')} order(s)")
+        for order in items:
+            print_bulk_order(order)
+
     step("get_balance", get_balance)
     step("get_services", get_services)
     step("get_direct_recharge_info", get_direct_recharge_info)
@@ -141,6 +162,7 @@ def main() -> int:
     step("get_aml_history", get_aml_history)
     step("get_subscriptions", get_subscriptions)
     step("get_subscription_history", get_subscription_history)
+    step("bulk_history", bulk_history)
 
     address = env("TRONZAP_ADDRESS")
 
@@ -159,8 +181,21 @@ def main() -> int:
             f"costs {calculation.get('total')}"
         )
 
+    def bulk_calculate(value: str) -> None:
+        calculation = client.bulk_calculate([
+            {"address": value, "amount": ENERGY},
+            {"address": "not-an-address", "amount": ENERGY},
+        ])
+        print(
+            f"  {calculation.get('id')}: {calculation.get('accepted')} accepted, "
+            f"total {calculation.get('total_amount')}, expires {calculation.get('expires_at')}"
+        )
+        for row in calculation.get("rejected") or []:
+            print(f"  rejected row {row.get('row')}: {row.get('reason')}")
+
     optional_step("get_address_info", address, get_address_info)
     optional_step("calculate", address, calculate)
+    optional_step("bulk_calculate", address, bulk_calculate)
 
     from_address = env("TRONZAP_FROM_ADDRESS")
     to_address = env("TRONZAP_TO_ADDRESS")
@@ -187,6 +222,12 @@ def main() -> int:
         env("TRONZAP_SUBSCRIPTION_ID"),
         lambda value: print_subscription(client.check_subscription(id=value)),
     )
+
+    def bulk_check(value: str) -> None:
+        print_bulk_order(client.bulk_check(value))
+        print_report(client.bulk_report(value))
+
+    optional_step("bulk_check, bulk_report", env("TRONZAP_BULK_ID"), bulk_check)
 
     if env("TRONZAP_ALLOW_PURCHASES") != "1":
         print("\nSkipping purchases: set TRONZAP_ALLOW_PURCHASES=1 to create transactions (debits the balance)")
@@ -232,7 +273,25 @@ def main() -> int:
         step("create_energy_transaction", buy_energy)
         step("create_bandwidth_transaction", buy_bandwidth)
         step("create_resource_bundle_transaction", buy_bundle)
+        def bulk_order() -> None:
+            calculation = client.bulk_calculate([{"address": buyer, "amount": ENERGY}])
+            try:
+                order = client.bulk_create(calculation["id"], external_id=f"{run_id}-bulk")
+            except ApiException as e:
+                if e.code != ErrorCode.BULK_PRICE_CHANGED or not e.result:
+                    raise
+                print(f"  price changed, new total {e.result.get('total_amount')}")
+                order = client.bulk_create(e.result["id"], external_id=f"{run_id}-bulk")
+            for _ in range(10):
+                if order.get("status") != "processing":
+                    break
+                time.sleep(3)
+                order = client.bulk_check(external_id=f"{run_id}-bulk")
+            print_bulk_order(order)
+            print_report(client.bulk_report(order["id"]))
+
         step("create_aml_check", create_aml_check)
+        step("bulk_create, bulk_check, bulk_report", bulk_order)
 
         plan = env("TRONZAP_SUBSCRIPTION_PLAN")
 

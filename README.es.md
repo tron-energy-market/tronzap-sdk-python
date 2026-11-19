@@ -123,11 +123,12 @@ verificación por hash, el SDK envía `"deposit"`.
 - Iniciar, verificar, detener y listar suscripciones
 - Verificar estado de transacciones
 - Obtener información de recarga directa
+- Pedidos masivos de energía para hasta 10 000 direcciones, con informe CSV y verificación de la firma del webhook
 
 ## Requisitos
 
 - Python 3.9 o superior
-- requests >= 2.25.0
+- requests >= 2.32.4
 
 ## Suscripciones
 
@@ -161,20 +162,69 @@ devuelven la suscripción con sus `params`; los elementos del historial traen en
 `transactions_used`, `energy_used` y `total_price`. Una suscripción con límite de transacciones no se puede detener
 (`CANNOT_STOP_SUBSCRIPTION`).
 
+## Pedidos masivos
+
+Compra energía para hasta 10 000 direcciones en un solo pedido. `bulk_calculate` valida y calcula las filas y devuelve un cálculo válido durante 10 minutos; no se cobra nada. Las filas inválidas no hacen fallar la solicitud: se devuelven en `rejected` con su número de fila. `bulk_create` inicia el pedido; cada dirección se cobra al procesarse, y las direcciones no activadas se omiten sin cobro.
+
+Si el precio cambió desde el cálculo, `bulk_create` no inicia el pedido y lanza `ApiException` con el código `BULK_PRICE_CHANGED`. El nuevo cálculo está en `e.result`: confirma el nuevo total e inícialo con su `id`.
+
+```python
+from tronzap_sdk import ApiException, ErrorCode
+
+items = [
+    {"address": "TRX_ADDRESS_1", "amount": 65000},
+    {"address": "TRX_ADDRESS_2", "amount": 131000},
+]
+
+try:
+    calculation = client.bulk_calculate(items, duration=1)
+except ApiException as e:
+    if e.code == ErrorCode.BULK_NO_VALID_ITEMS:
+        print(e.result["rejected"])  # Todas las filas fueron rechazadas
+    raise
+
+print(f"Total: {calculation['total_amount']} TRX, rechazadas: {calculation['rejected_count']}")
+
+try:
+    order = client.bulk_create(
+        calculation["id"],
+        external_id="order-42",
+        webhook_url="https://example.com/tronzap/bulk",
+    )
+except ApiException as e:
+    if e.code != ErrorCode.BULK_PRICE_CHANGED:
+        raise
+    calculation = e.result  # Nuevo cálculo: confirma el nuevo total e inícialo
+    order = client.bulk_create(calculation["id"], external_id="order-42")
+
+order = client.bulk_check(external_id="order-42")  # Consulta hasta completed, partial o failed
+
+report = client.bulk_report(order["id"])  # row,address,amount,status,reason,charged,transaction_id
+```
+
+Con `webhook_url`, la API envía un único `POST` cuando el pedido pasa a un estado final. Verifica su cabecera `X-Signature` con el cuerpo sin procesar antes de confiar en él, por ejemplo en Flask:
+
+```python
+from flask import abort, request
+
+if not client.verify_webhook_signature(request.get_data(), request.headers.get("X-Signature", "")):
+    abort(403)
+```
+
 ## Manejo de Errores
 
 El SDK utiliza una jerarquía de excepciones para un manejo preciso de errores:
 
 ```
 TronZapException
-├── ApiException             — errores a nivel de API (code != 0 en la respuesta)
+├── ApiException             — errores a nivel de API (code != 0 en la respuesta), incluido HTTP 429 de la API
 ├── InvalidRequestException  — argumentos inválidos, rechazados antes del envío (también es ValueError)
 ├── NetworkException         — errores de red/conectividad
 │   ├── ConnectionException  — no se pudo conectar al servidor
 │   ├── TimeoutException     — tiempo de espera agotado
 │   └── SslException         — errores SSL/TLS
 └── HttpException            — respuestas HTTP no 2xx
-    ├── RateLimitException   — HTTP 429 Too Many Requests
+    ├── RateLimitException   — HTTP 429 sin respuesta de la API, p. ej. de un proxy
     ├── UnauthorizedException — HTTP 401/403
     └── ServerException      — errores HTTP 5xx
 ```
@@ -182,6 +232,8 @@ TronZapException
 ### Ejemplo
 
 ```python
+import time
+
 from tronzap_sdk import Client
 from tronzap_sdk.exceptions import (
     ApiException,
@@ -212,6 +264,13 @@ except ApiException as e:
 
     # Indícalo al contactar con soporte
     print(f"ID de solicitud: {e.request_id}")
+
+    # Datos que la API envió con el error, p. ej. el nuevo cálculo para BULK_PRICE_CHANGED
+    result = e.result
+
+    if e.code == ErrorCode.RATE_LIMITED:
+        # Segundos de espera, si la API los envió
+        time.sleep(60 if e.retry_after is None else e.retry_after)
 
     if e.code == ErrorCode.INVALID_TRON_ADDRESS:
         print("Revisa el formato de la dirección TRON.")
@@ -255,6 +314,14 @@ except TronZapException as e:
 | 30     | `AML_CHECK_NOT_FOUND`          | Chequeo AML no encontrado |
 | 35     | `SERVICE_NOT_AVAILABLE`        | Servicio no disponible |
 | 50     | `INVALID_BANDWIDTH_AMOUNT`     | Cantidad de ancho de banda inválida |
+| 90     | `BULK_NOT_FOUND`               | Pedido masivo no encontrado |
+| 91     | `BULK_EXPIRED`                 | El cálculo expiró, calcula de nuevo |
+| 92     | `BULK_PRICE_CHANGED`           | El precio cambió; el nuevo cálculo está en `e.result` |
+| 93     | `BULK_TOO_MANY_ITEMS`          | Más de 10 000 filas |
+| 94     | `BULK_NO_VALID_ITEMS`          | No hay filas válidas; están en `e.result["rejected"]` |
+| 95     | `BULK_RESOURCE_NOT_SUPPORTED`  | Solo se puede pedir energía de forma masiva |
+| 96     | `PAYLOAD_TOO_LARGE`            | Cuerpo de la solicitud demasiado grande (HTTP 413) |
+| 429    | `RATE_LIMITED`                 | Demasiadas solicitudes; espera `e.retry_after` segundos si se indica |
 | 500    | `INTERNAL_SERVER_ERROR`        | Error interno del servidor – Contacta con soporte |
 
 
