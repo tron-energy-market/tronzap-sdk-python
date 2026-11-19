@@ -1,6 +1,6 @@
 -r requirements-test.txt
-ruff==0.16.10
-mypy==2.4.0
-types-requests==2.33.0.20261006
+ruff==0.17.3
+mypy==2.4.1
+types-requests==2.33.0.20261030
 build==1.6.1
 twine==7.0.0
