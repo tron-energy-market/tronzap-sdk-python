@@ -6,6 +6,39 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-19
+
+### Added
+
+- Bulk orders: `bulk_calculate()`, `bulk_create()`, `bulk_check()`, `bulk_history()` and `bulk_report()` for
+  `/v1/bulk/calculate`, `/v1/bulk/create`, `/v1/bulk/check`, `/v1/bulk/history` and `/v1/bulk/report`.
+  `bulk_calculate` takes the rows as any iterable of `{"address": ..., "amount": ...}` mappings and a duration,
+  always orders energy, and raises `InvalidRequestException` before sending when there are no rows; invalid rows are
+  not checked by the SDK and come back in `rejected` with their row number. `bulk_report` returns the CSV report as a
+  string, decoded as UTF-8.
+- `verify_webhook_signature()` checks the `X-Signature` header of a bulk order webhook against the raw body, given as
+  `str` or `bytes`.
+- `ApiException.result` holds the data the API sends with an error, or `None`. Until now it was dropped, so the new
+  calculation of `BULK_PRICE_CHANGED`, the rejected rows of `BULK_NO_VALID_ITEMS` and the like could not be read
+  through the SDK.
+- `ApiException.retry_after` and `RateLimitException.retry_after` hold the seconds to wait before retrying, from the
+  `Retry-After` header (seconds or an HTTP date) or the `retry_after` field, or `None` when the API sent neither.
+- `ErrorCode.BULK_NOT_FOUND` (90), `BULK_EXPIRED` (91), `BULK_PRICE_CHANGED` (92), `BULK_TOO_MANY_ITEMS` (93),
+  `BULK_NO_VALID_ITEMS` (94), `BULK_RESOURCE_NOT_SUPPORTED` (95), `PAYLOAD_TOO_LARGE` (96) and `RATE_LIMITED` (429).
+- `examples/basic_usage.py` lists the bulk orders, calculates a bulk order for `TRONZAP_ADDRESS`, checks the order in
+  `TRONZAP_BULK_ID` and prints its report, and with purchases allowed starts a one-address bulk order.
+
+### Changed
+
+- The README documents that a rate limit reported by the API, HTTP 429 with a JSON body, is raised as `ApiException`
+  with code `RATE_LIMITED`, as it always has been; `RateLimitException` is raised only for an HTTP 429 without an API
+  body, such as one from a proxy.
+
+### Security
+
+- The minimum `requests` version is now 2.32.4 instead of 2.25.0, so the SDK no longer installs alongside versions
+  affected by CVE-2024-35195 and CVE-2024-47081. Python 3.9 is still supported.
+
 ## [1.6.0] - 2026-10-09
 
 ### Added
